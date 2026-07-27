@@ -14,6 +14,7 @@ import {
   MessageCircle,
   Bell,
   CalendarDays,
+  BookOpen,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadges";
@@ -54,6 +55,7 @@ export default function Home() {
   const userActions = [
     { to: "/new", icon: Plus, title: "ثبت تیکت جدید" },
     { to: "/mine", icon: ListChecks, title: "تیکت‌های من" },
+    { to: "/guide", icon: BookOpen, title: "راهنمای استفاده" },
   ];
 
   const adminActions = [
@@ -62,6 +64,7 @@ export default function Home() {
     { to: "/reports", icon: BarChart3, title: "گزارش‌ها" },
     { to: "/admin", icon: Users, title: "کاربران و واحدها" },
     { to: "/profile", icon: UserCircle, title: "پروفایل" },
+    { to: "/guide", icon: BookOpen, title: "راهنمای استفاده" },
   ];
 
   const actions = isAdmin ? adminActions : userActions;

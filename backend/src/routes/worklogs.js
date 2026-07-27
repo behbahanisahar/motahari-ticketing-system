@@ -54,6 +54,8 @@ function mapRow(row) {
     durationMinutes: row.duration_minutes,
     ticketId: row.ticket_id,
     ticketNumber: row.ticket_number,
+    ticketSubject: row.ticket_subject || null,
+    ticketStatus: row.ticket_status || null,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
     isAssigned: Number(row.author_id) !== Number(row.assignee_id),
@@ -68,7 +70,7 @@ function enrichPermissions(row, userId) {
   const isClosed = row.status === "done" || row.status === "rejected";
 
   return {
-    canEdit: isAuthor && !isClosed,
+    canEdit: (isAuthor || isAssignee) && !isClosed,
     canDelete: isAuthor,
     canUpdateStatus: isAssignee && !isClosed,
     canReject: isAssignee && isAssigned && row.status !== "rejected" && row.status !== "done",
@@ -82,7 +84,8 @@ function enrichPermissions(row, userId) {
 
 async function fetchWorkLog(id) {
   const result = await db.query(
-    `SELECT wl.*, u.display_name AS author_name, a.display_name AS assignee_name, t.ticket_number
+    `SELECT wl.*, u.display_name AS author_name, a.display_name AS assignee_name,
+            t.ticket_number, t.subject AS ticket_subject, t.status AS ticket_status
      ${WORK_LOG_JOIN}
      WHERE wl.id = $1`,
     [id]
@@ -148,7 +151,8 @@ router.get("/", async (req, res) => {
   const [countResult, itemsResult, summaryResult, minutesResult] = await Promise.all([
     db.query(`SELECT COUNT(*)::int AS total ${WORK_LOG_JOIN} ${where}`, params),
     db.query(
-      `SELECT wl.*, u.display_name AS author_name, a.display_name AS assignee_name, t.ticket_number
+      `SELECT wl.*, u.display_name AS author_name, a.display_name AS assignee_name,
+              t.ticket_number, t.subject AS ticket_subject, t.status AS ticket_status
        ${WORK_LOG_JOIN}
        ${where}
        ORDER BY wl.work_date DESC, wl.created_at DESC
@@ -295,7 +299,7 @@ router.patch("/:id", async (req, res) => {
   const isRevert = status === "queued" && row.status === "rejected";
 
   if (wantsContent && !perms.canEdit) {
-    return res.status(403).json({ error: "فقط ثبت‌کننده می‌تواند این کار را ویرایش کند." });
+    return res.status(403).json({ error: "اجازه ویرایش این کار را ندارید." });
   }
 
   if (wantsStatus && !isRevert && !perms.canUpdateStatus) {

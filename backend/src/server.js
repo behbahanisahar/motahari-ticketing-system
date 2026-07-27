@@ -1,3 +1,4 @@
+require("dotenv").config();
 const http = require("http");
 const config = require("./config");
 const { initApp } = require("./app");
@@ -7,8 +8,8 @@ initApp()
   .then((app) => {
     const server = http.createServer(app);
     initSocket(server);
-    server.listen(config.PORT, () => {
-      console.log(`Ticketing backend running on port ${config.PORT}`);
+    server.listen(config.PORT, "0.0.0.0", () => {
+      console.log(`Ticketing backend running on http://0.0.0.0:${config.PORT}`);
     });
   })
   .catch((err) => {

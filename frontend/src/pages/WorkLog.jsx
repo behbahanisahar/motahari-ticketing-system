@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import { ClipboardList, Clock, Pencil, Plus, Trash2, Undo2, XCircle, CalendarDays } from "lucide-react";
+import { ClipboardList, Clock, Pencil, Plus, Trash2, Undo2, XCircle, CalendarDays, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { WorkLogDateFilter } from "@/components/WorkLogDateFilter";
 import { StatCard } from "@/components/StatCard";
@@ -15,6 +15,13 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Badge } from "@/components/ui/badge";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { useAuth } from "@/hooks/useAuth";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { api } from "@/lib/api";
@@ -73,6 +80,8 @@ export default function WorkLog() {
   const [form, setForm] = useState(emptyForm);
   const [saving, setSaving] = useState(false);
   const [editingId, setEditingId] = useState(null);
+  const [detailItem, setDetailItem] = useState(null);
+  const formRef = useRef(null);
 
   const listDate = dateMode === "all" ? "all" : date;
 
@@ -146,7 +155,11 @@ export default function WorkLog() {
   };
 
   const startEdit = (item) => {
-    if (!item.canEdit) return;
+    if (!item?.canEdit) {
+      toast.error("این کار قابل ویرایش نیست (انجام‌شده/ردشده یا خارج از دسترسی شما).");
+      return;
+    }
+    setDetailItem(null);
     setEditingId(item.id);
     setForm({
       title: item.title,
@@ -156,7 +169,9 @@ export default function WorkLog() {
       assigneeId: item.isAssigned ? String(item.assigneeId) : "self",
       status: item.status,
     });
-    window.scrollTo({ top: 0, behavior: "smooth" });
+    requestAnimationFrame(() => {
+      formRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
   };
 
   const handleDelete = async (item) => {
@@ -232,74 +247,39 @@ export default function WorkLog() {
   const showAllDates = dateMode === "all";
 
   const columns = [
-    ...(showAllDates
-      ? [
-          {
-            key: "workDate",
-            label: "تاریخ",
-            headClassName: "w-28 whitespace-nowrap",
-            className: "whitespace-nowrap",
-            render: (row) => (
-              <span className="fa-num text-sm font-medium text-foreground">
-                {formatWorkDateCell(row.workDate ?? row.work_date)}
-              </span>
-            ),
-          },
-        ]
-      : []),
     {
       key: "title",
       label: "شرح کار",
       primary: true,
-      headClassName: "whitespace-nowrap",
-      className: "min-w-[8.5rem] max-w-[12rem] sm:max-w-[16rem] lg:max-w-[20rem] xl:max-w-[24rem] 2xl:max-w-[28rem]",
       render: (row) => {
         const flag = assignmentBadge(row);
         return (
           <div className="min-w-0">
-            <div className="flex flex-wrap items-center gap-1.5">
-              <p className="line-clamp-1 font-semibold text-foreground">{row.title}</p>
-              {flag && (
-                <span className={cn("shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold", flag.className)}>
-                  {flag.label}
-                </span>
-              )}
-            </div>
-            {row.description && (
-              <p className="mt-1 line-clamp-2 text-xs leading-relaxed text-muted-foreground">{row.description}</p>
-            )}
-            {row.ticketNumber && (
-              <Link to={`/tickets/${row.ticketId}`} className="mt-1 inline-block text-xs font-medium text-primary hover:underline">
-                تیکت {toPersianDigits(row.ticketNumber)}
-              </Link>
+            <button
+              type="button"
+              onClick={() => setDetailItem(row)}
+              className="text-start font-semibold hover:text-primary hover:underline"
+              title="مشاهده جزئیات"
+            >
+              {row.title}
+            </button>
+            {flag && (
+              <span className={cn("mt-1 inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold", flag.className)}>
+                {flag.label}
+              </span>
             )}
           </div>
         );
       },
     },
     {
-      key: "assignee",
-      label: "مسئول",
-      headClassName: "w-28 whitespace-nowrap",
-      className: "min-w-[6.5rem] max-w-[7.5rem]",
-      render: (row) => (
-        <div className="text-sm">
-          <p className="font-medium">{row.assigneeName}</p>
-          {row.isAssigned && (
-            <p className="mt-0.5 line-clamp-1 text-xs text-muted-foreground">از طرف {row.authorName}</p>
-          )}
-        </div>
-      ),
-    },
-    {
       key: "status",
       label: "وضعیت",
-      headClassName: "w-32 whitespace-nowrap",
-      className: "min-w-[7.5rem]",
+      primary: true,
       render: (row) =>
         row.canUpdateStatus ? (
           <Select value={row.status} onValueChange={(v) => handleStatusChange(row, v)}>
-            <SelectTrigger className="h-8 w-full min-w-[6.5rem] max-w-[7.5rem]">
+            <SelectTrigger className="h-8 w-[7.5rem] border-slate-200 bg-white">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -313,55 +293,75 @@ export default function WorkLog() {
         ) : (
           <div className="flex flex-col gap-1">
             <StatusBadge value={row.status} />
-            {row.rejectReason && (
-              <span className="line-clamp-2 text-xs text-muted-foreground">علت رد: {row.rejectReason}</span>
-            )}
             {row.canRevert && (
               <Button type="button" variant="outline" size="sm" className="h-7 gap-1 px-2 text-xs" onClick={() => handleRevert(row)}>
                 <Undo2 className="h-3.5 w-3.5" />
-                <span className="hidden sm:inline">بازگشت</span>
+                بازگشت
               </Button>
             )}
           </div>
         ),
     },
     {
+      key: "assignee",
+      label: "مسئول",
+      render: (row) => row.assigneeName || "—",
+    },
+    {
       key: "category",
       label: "دسته",
-      headClassName: "w-24 whitespace-nowrap",
-      className: "whitespace-nowrap",
-      render: (row) => (
-        <Badge variant="secondary" className="font-normal">
-          {workCategoryMeta(row.category).label}
-        </Badge>
-      ),
+      hideOnMobile: true,
+      render: (row) => workCategoryMeta(row.category).label,
+    },
+    {
+      key: "ticket",
+      label: "تیکت",
+      hideOnMobile: true,
+      render: (row) =>
+        row.ticketId ? (
+          <Link to={`/tickets/${row.ticketId}`} className="fa-num font-bold text-primary hover:underline">
+            {toPersianDigits(row.ticketNumber)}
+          </Link>
+        ) : (
+          "—"
+        ),
     },
     {
       key: "duration",
       label: "مدت",
-      headClassName: "w-20 whitespace-nowrap",
-      className: "whitespace-nowrap fa-num",
-      render: (row) => (
-        <span className="fa-num text-sm text-muted-foreground">
-          {row.durationMinutes ? `${formatNumber(row.durationMinutes)} دقیقه` : "—"}
-        </span>
-      ),
+      className: "fa-num text-muted-foreground",
+      hideOnMobile: true,
+      render: (row) => (row.durationMinutes ? `${formatNumber(row.durationMinutes)} دقیقه` : "—"),
+    },
+    {
+      key: "date",
+      label: "تاریخ",
+      className: "fa-num text-muted-foreground",
+      render: (row) => formatWorkDateCell(row.workDate ?? row.work_date),
     },
   ];
 
   const rowActions = (row) => (
     <div className="flex flex-wrap justify-end gap-1">
       {row.canEdit && (
-        <Button type="button" variant="ghost" size="icon" className="h-8 w-8" onClick={() => startEdit(row)}>
+        <Button
+          type="button"
+          variant="outline"
+          size="icon"
+          className="h-8 w-8 text-slate-800"
+          title="ویرایش"
+          onClick={() => startEdit(row)}
+        >
           <Pencil className="h-4 w-4" />
         </Button>
       )}
       {row.canDelete && (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           className="h-8 w-8 text-urgent hover:text-urgent"
+          title="حذف"
           onClick={() => handleDelete(row)}
         >
           <Trash2 className="h-4 w-4" />
@@ -370,7 +370,7 @@ export default function WorkLog() {
       {row.canReject && (
         <Button
           type="button"
-          variant="ghost"
+          variant="outline"
           size="icon"
           className="h-8 w-8 text-urgent hover:text-urgent"
           onClick={() => handleReject(row)}
@@ -378,9 +378,6 @@ export default function WorkLog() {
         >
           <XCircle className="h-4 w-4" />
         </Button>
-      )}
-      {!row.canEdit && !row.canDelete && !row.canReject && !row.canUpdateStatus && !row.canRevert && (
-        <span className="text-xs text-muted-foreground">فقط مشاهده</span>
       )}
     </div>
   );
@@ -447,10 +444,10 @@ export default function WorkLog() {
         </div>
       )}
 
-      <Card className="border-primary/10">
+      <Card className={cn("border-primary/10", editingId && "ring-2 ring-primary/30")} ref={formRef}>
         <CardContent className="p-4 sm:p-6">
           <h2 className="mb-4 flex items-center gap-2 text-base font-bold">
-            <Plus className="h-5 w-5 text-primary" />
+            {editingId ? <Pencil className="h-5 w-5 text-primary" /> : <Plus className="h-5 w-5 text-primary" />}
             {editingId ? "ویرایش کار" : "ثبت کار جدید"}
           </h2>
           <form onSubmit={handleSubmit} className="grid gap-4 lg:grid-cols-2">
@@ -562,111 +559,106 @@ export default function WorkLog() {
         </CardContent>
       </Card>
 
-      <Card className="overflow-visible">
-        <CardContent className="flex flex-col gap-3 overflow-visible p-4">
-          <TableToolbar
-            query={search}
-            onQueryChange={(v) => {
-              setSearch(v);
+      <div className="flex flex-col gap-3">
+        <TableToolbar
+          query={search}
+          onQueryChange={(v) => {
+            setSearch(v);
+            setPage(1);
+          }}
+          page={data?.page ?? 1}
+          totalPages={data?.totalPages ?? 1}
+          total={totalCount}
+          onPageChange={setPage}
+          placeholder="جستجو در عنوان، توضیحات یا نام همکار..."
+          onDark
+        />
+
+        <WorkLogDateFilter
+          mode={dateMode}
+          date={date}
+          onModeChange={(mode) => {
+            setDateMode(mode);
+            if (mode === "day" && dateMode === "all") {
+              setDate(todayGregorian());
+            }
+            setPage(1);
+          }}
+          onDateChange={(v) => {
+            setDateMode("day");
+            setDate(v);
+            setPage(1);
+          }}
+        />
+
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          <Select
+            value={category || "all"}
+            onValueChange={(v) => {
+              setCategory(v === "all" ? "" : v);
               setPage(1);
             }}
-            page={data?.page ?? 1}
-            totalPages={data?.totalPages ?? 1}
-            total={totalCount}
-            onPageChange={setPage}
-            placeholder="جستجو در عنوان، توضیحات یا نام همکار..."
-          />
-
-          <div className="flex flex-col gap-3 lg:flex-row lg:flex-wrap lg:items-center">
-            <WorkLogDateFilter
-              compact
-              mode={dateMode}
-              date={date}
-              onModeChange={(mode) => {
-                setDateMode(mode);
-                if (mode === "day" && dateMode === "all") {
-                  setDate(todayGregorian());
-                }
-                setPage(1);
-              }}
-              onDateChange={(v) => {
-                setDateMode("day");
-                setDate(v);
-                setPage(1);
-              }}
-            />
-
-            <div className="flex flex-1 flex-wrap gap-2">
-              <Select
-                value={category || "all"}
-                onValueChange={(v) => {
-                  setCategory(v === "all" ? "" : v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-full min-w-[8.5rem] sm:w-36">
-                  <SelectValue placeholder="دسته" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">همه دسته‌ها</SelectItem>
-                  {WORK_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={assigneeId || "all"}
-                onValueChange={(v) => {
-                  setAssigneeId(v === "all" ? "" : v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-full min-w-[8.5rem] sm:w-36">
-                  <SelectValue placeholder="مسئول" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">همه مسئولین</SelectItem>
-                  {admins.map((a) => (
-                    <SelectItem key={a.id} value={String(a.id)}>
-                      {a.display_name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <Select
-                value={statusFilter || "all"}
-                onValueChange={(v) => {
-                  setStatusFilter(v === "all" ? "" : v);
-                  setPage(1);
-                }}
-              >
-                <SelectTrigger className="h-9 w-full min-w-[8.5rem] sm:w-36">
-                  <SelectValue placeholder="وضعیت" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">همه وضعیت‌ها</SelectItem>
-                  {STATUSES.map((s) => (
-                    <SelectItem key={s.value} value={s.value}>
-                      {s.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+          >
+            <SelectTrigger className="border-slate-200 bg-white">
+              <SelectValue placeholder="دسته" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه دسته‌ها</SelectItem>
+              {WORK_CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>
+                  {c.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={assigneeId || "all"}
+            onValueChange={(v) => {
+              setAssigneeId(v === "all" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="border-slate-200 bg-white">
+              <SelectValue placeholder="مسئول" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه مسئولین</SelectItem>
+              {admins.map((a) => (
+                <SelectItem key={a.id} value={String(a.id)}>
+                  {a.display_name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <Select
+            value={statusFilter || "all"}
+            onValueChange={(v) => {
+              setStatusFilter(v === "all" ? "" : v);
+              setPage(1);
+            }}
+          >
+            <SelectTrigger className="border-slate-200 bg-white">
+              <SelectValue placeholder="وضعیت" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه وضعیت‌ها</SelectItem>
+              {STATUSES.map((s) => (
+                <SelectItem key={s.value} value={s.value}>
+                  {s.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      </div>
 
       {loading && !data ? (
-        <p className="py-8 text-center text-sm text-muted-foreground">در حال بارگذاری...</p>
+        <p className="py-10 text-center text-muted-foreground">در حال بارگذاری...</p>
       ) : (
         <ResponsiveTable
           rowKey={(row) => row.id}
           rows={items}
           columns={columns}
-          tableMinWidth="min-w-full"
           emptyMessage={
             search || category || assigneeId || statusFilter
               ? "کاری با این فیلتر یافت نشد."
@@ -677,6 +669,103 @@ export default function WorkLog() {
           mobileActions={rowActions}
         />
       )}
+
+      {data && (data.totalPages ?? 1) > 1 && (
+        <TableToolbar
+          showSearch={false}
+          page={data.page ?? 1}
+          totalPages={data.totalPages ?? 1}
+          total={totalCount}
+          onPageChange={setPage}
+          onDark
+        />
+      )}
+
+      <Dialog open={!!detailItem} onOpenChange={(open) => !open && setDetailItem(null)}>
+        <DialogContent className="w-[min(94vw,32rem)]">
+          {detailItem && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{detailItem.title}</DialogTitle>
+                <DialogDescription>
+                  {formatWorkDateCell(detailItem.workDate)} · {detailItem.assigneeName}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-3 text-sm">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusBadge value={detailItem.status} />
+                  <Badge variant="secondary">{workCategoryMeta(detailItem.category).label}</Badge>
+                  {detailItem.durationMinutes ? (
+                    <span className="fa-num text-muted-foreground">
+                      {formatNumber(detailItem.durationMinutes)} دقیقه
+                    </span>
+                  ) : null}
+                </div>
+
+                <div>
+                  <p className="mb-1 text-xs font-semibold text-muted-foreground">جزئیات کار</p>
+                  <p className="whitespace-pre-wrap leading-7 text-foreground">
+                    {detailItem.description?.trim() || "توضیحی ثبت نشده است."}
+                  </p>
+                </div>
+
+                {detailItem.rejectReason && (
+                  <div className="rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-rose-800">
+                    <p className="text-xs font-semibold">علت رد</p>
+                    <p className="mt-1">{detailItem.rejectReason}</p>
+                  </div>
+                )}
+
+                {detailItem.ticketId && (
+                  <div className="rounded-xl border border-teal-200 bg-teal-50/80 px-3 py-3">
+                    <p className="text-xs font-semibold text-teal-800">تیکت مرتبط</p>
+                    <p className="fa-num mt-1 font-bold text-teal-900">
+                      {toPersianDigits(detailItem.ticketNumber)}
+                    </p>
+                    {detailItem.ticketSubject && (
+                      <p className="mt-1 text-sm text-teal-900/80">{detailItem.ticketSubject}</p>
+                    )}
+                    {detailItem.ticketStatus && (
+                      <div className="mt-2">
+                        <StatusBadge value={detailItem.ticketStatus} />
+                      </div>
+                    )}
+                    <Link
+                      to={`/tickets/${detailItem.ticketId}`}
+                      className="mt-3 inline-flex"
+                      onClick={() => setDetailItem(null)}
+                    >
+                      <Button type="button" size="sm" className="rounded-xl">
+                        <ExternalLink className="h-4 w-4" />
+                        مشاهده و ویرایش تیکت
+                      </Button>
+                    </Link>
+                  </div>
+                )}
+
+                <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                  {detailItem.canEdit && (
+                    <Button
+                      type="button"
+                      onClick={() => {
+                        startEdit(detailItem);
+                        setDetailItem(null);
+                      }}
+                    >
+                      <Pencil className="h-4 w-4" />
+                      ویرایش این کار
+                    </Button>
+                  )}
+                  <Button type="button" variant="outline" onClick={() => setDetailItem(null)}>
+                    بستن
+                  </Button>
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

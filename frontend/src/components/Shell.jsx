@@ -9,6 +9,7 @@ import {
   BarChart3,
   UserCircle,
   ClipboardList,
+  BookOpen,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { NotificationPanel } from "@/components/NotificationPanel";
@@ -58,6 +59,7 @@ export function Shell({ children }) {
     homeLink,
     { to: "/new", icon: Plus, label: "ثبت تیکت" },
     { to: "/mine", icon: ListChecks, label: "تیکت‌های من" },
+    { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
 
   const adminLinks = [
@@ -67,6 +69,7 @@ export function Shell({ children }) {
     { to: "/reports", icon: BarChart3, label: "گزارش‌ها" },
     { to: "/admin", icon: Users, label: "کاربران" },
     { to: "/profile", icon: UserCircle, label: "پروفایل" },
+    { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
 
   const links = isAdmin ? adminLinks : userLinks;

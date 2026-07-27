@@ -17,6 +17,7 @@ import AdminUsers from "@/pages/AdminUsers";
 import AdminReports from "@/pages/AdminReports";
 import Profile from "@/pages/Profile";
 import WorkLog from "@/pages/WorkLog";
+import UserGuide from "@/pages/UserGuide";
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -81,6 +82,14 @@ export default function App() {
               element={
                 <Protected>
                   <Shell><MyTickets /></Shell>
+                </Protected>
+              }
+            />
+            <Route
+              path="/guide"
+              element={
+                <Protected>
+                  <Shell><UserGuide /></Shell>
                 </Protected>
               }
             />
