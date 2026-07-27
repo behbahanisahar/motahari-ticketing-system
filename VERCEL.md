@@ -80,4 +80,4 @@ Docker (recommended):
 docker compose up --build
 ```
 
-Open http://localhost:8080
+Open http://localhost:4000

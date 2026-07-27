@@ -69,12 +69,13 @@ function enrichPermissions(row, userId) {
   const isSelfTask = isAuthor && isAssignee;
   const isClosed = row.status === "done" || row.status === "rejected";
 
+  // Worklog is admin-only; any admin may manage entries, not just author/assignee.
   return {
-    canEdit: (isAuthor || isAssignee) && !isClosed,
-    canDelete: isAuthor,
-    canUpdateStatus: isAssignee && !isClosed,
-    canReject: isAssignee && isAssigned && row.status !== "rejected" && row.status !== "done",
-    canRevert: isAuthor && row.status === "rejected",
+    canEdit: !isClosed,
+    canDelete: true,
+    canUpdateStatus: !isClosed,
+    canReject: isAssigned && row.status !== "rejected" && row.status !== "done",
+    canRevert: row.status === "rejected",
     isSelfTask,
     isAssigned,
     isDelegatedByMe: isAuthor && isAssigned,
@@ -414,8 +415,9 @@ router.delete("/:id", async (req, res) => {
   if (existing.rows.length === 0) {
     return res.status(404).json({ error: "مورد کار یافت نشد." });
   }
-  if (Number(existing.rows[0].author_id) !== Number(req.user.id)) {
-    return res.status(403).json({ error: "فقط ثبت‌کننده می‌تواند این مورد را حذف کند." });
+  const perms = enrichPermissions(existing.rows[0], req.user.id);
+  if (!perms.canDelete) {
+    return res.status(403).json({ error: "اجازه حذف این کار را ندارید." });
   }
   await db.query("DELETE FROM work_logs WHERE id = $1", [id]);
   res.json({ ok: true });
