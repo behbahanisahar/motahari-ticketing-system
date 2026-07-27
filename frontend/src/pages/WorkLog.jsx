@@ -124,7 +124,7 @@ export default function WorkLog() {
     }
     setSaving(true);
     try {
-      const isSelf = form.assigneeId === "self";
+      const isSelf = form.assigneeId === "self" || String(form.assigneeId) === String(user?.id);
       const payload = {
         title: form.title.trim(),
         description: form.description.trim() || undefined,
@@ -156,7 +156,10 @@ export default function WorkLog() {
 
   const startEdit = (item) => {
     if (!item?.canEdit) {
-      toast.error("این کار قابل ویرایش نیست (انجام‌شده/ردشده یا خارج از دسترسی شما).");
+      toast.error("این کار قابل ویرایش نیست.");
+      return;
+    }
+    if (!item?.id) {
       return;
     }
     setDetailItem(null);
@@ -166,7 +169,7 @@ export default function WorkLog() {
       description: item.description || "",
       category: item.category,
       durationMinutes: item.durationMinutes ?? "",
-      assigneeId: item.isAssigned ? String(item.assigneeId) : "self",
+      assigneeId: String(item.assigneeId) === String(user?.id) ? "self" : String(item.assigneeId),
       status: item.status,
     });
     requestAnimationFrame(() => {

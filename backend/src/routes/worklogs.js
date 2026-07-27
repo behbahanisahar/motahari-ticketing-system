@@ -69,10 +69,10 @@ function enrichPermissions(row, userId) {
   const isSelfTask = isAuthor && isAssignee;
   const isClosed = row.status === "done" || row.status === "rejected";
 
-  // Worklog is admin-only; any admin may manage entries, not just author/assignee.
+  // Worklog is admin-only; open items are manageable by any admin.
   return {
     canEdit: !isClosed,
-    canDelete: true,
+    canDelete: !isClosed,
     canUpdateStatus: !isClosed,
     canReject: isAssigned && row.status !== "rejected" && row.status !== "done",
     canRevert: row.status === "rejected",
