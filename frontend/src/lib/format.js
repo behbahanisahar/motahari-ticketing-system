@@ -2,6 +2,9 @@ const PERSIAN_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "�
 const PERSIAN_DIGIT_CHARS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGIT_CHARS = "٠١٢٣٤٥٦٧٨٩";
 
+/** Iran has no DST (fixed UTC+03:30). Avoid Intl Asia/Tehran — old ICU/Windows data is often wrong. */
+const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
+
 export function toPersianDigits(value) {
   return String(value).replace(/\d/g, (d) => PERSIAN_DIGITS[Number(d)]);
 }
@@ -42,8 +45,6 @@ export function formatMinutesAsHours(minutes) {
   return `${formatNumber(hours)} ساعت`;
 }
 
-const TEHRAN_TZ = "Asia/Tehran";
-
 /** Parse API timestamps consistently (values are UTC instants). */
 export function parseAppDate(value) {
   if (!value && value !== 0) return null;
@@ -60,7 +61,7 @@ export function parseAppDate(value) {
   const raw = String(value).trim();
   if (!raw) return null;
 
-  // Date-only: keep calendar day stable in Tehran noon.
+  // Date-only: keep calendar day stable at Tehran noon.
   if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
     const d = new Date(`${raw}T12:00:00+03:30`);
     return Number.isNaN(d.getTime()) ? null : d;
@@ -72,37 +73,56 @@ export function parseAppDate(value) {
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  // No timezone: API/DB should send UTC; append Z so browsers don't use local OS TZ
+  // No timezone: treat as UTC so browsers don't apply the OS timezone
   const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
   const d = new Date(`${normalized}Z`);
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
+function pad2(n) {
+  return String(n).padStart(2, "0");
+}
+
+/** Wall-clock parts in Asia/Tehran from a UTC instant. */
+function getTehranParts(date) {
+  const shifted = new Date(date.getTime() + TEHRAN_OFFSET_MS);
+  return {
+    year: shifted.getUTCFullYear(),
+    month: shifted.getUTCMonth(),
+    day: shifted.getUTCDate(),
+    hour: shifted.getUTCHours(),
+    minute: shifted.getUTCMinutes(),
+    second: shifted.getUTCSeconds(),
+  };
+}
+
+/** Persian labels for Gregorian day/month (time comes from fixed-offset parts). */
+function formatTehranDateLabel(parts, options = {}) {
+  const fakeUtc = new Date(Date.UTC(parts.year, parts.month, parts.day, 12, 0, 0));
+  return new Intl.DateTimeFormat("fa-IR-u-ca-gregory", {
+    timeZone: "UTC",
+    ...options,
+  }).format(fakeUtc);
+}
+
 export function formatDateFa(iso, options = { month: "short", day: "numeric" }) {
   const date = parseAppDate(iso);
   if (!date) return "";
-  return toPersianDigits(
-    date.toLocaleDateString("fa-IR", {
-      timeZone: TEHRAN_TZ,
-      ...options,
-    })
-  );
+  const parts = getTehranParts(date);
+  return toPersianDigits(formatTehranDateLabel(parts, options));
 }
 
 export function formatDateTimeFa(iso) {
   const date = parseAppDate(iso);
   if (!date) return "";
-  return toPersianDigits(
-    date.toLocaleString("fa-IR", {
-      timeZone: TEHRAN_TZ,
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-  );
+  const parts = getTehranParts(date);
+  const dateLabel = formatTehranDateLabel(parts, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
+  const time = `${pad2(parts.hour)}:${pad2(parts.minute)}`;
+  return toPersianDigits(`${dateLabel}، ${time}`);
 }
 
 /** Compact Tehran time for chat bubbles and notification rows. */
@@ -110,34 +130,19 @@ export function formatMessageTimeFa(iso) {
   const date = parseAppDate(iso);
   if (!date) return "";
 
-  const now = new Date();
-  const tehranNow = new Date(now.toLocaleString("en-US", { timeZone: TEHRAN_TZ }));
-  const tehranDate = new Date(date.toLocaleString("en-US", { timeZone: TEHRAN_TZ }));
+  const parts = getTehranParts(date);
+  const nowParts = getTehranParts(new Date());
+  const time = `${pad2(parts.hour)}:${pad2(parts.minute)}`;
 
   const sameDay =
-    tehranNow.getFullYear() === tehranDate.getFullYear() &&
-    tehranNow.getMonth() === tehranDate.getMonth() &&
-    tehranNow.getDate() === tehranDate.getDate();
+    parts.year === nowParts.year &&
+    parts.month === nowParts.month &&
+    parts.day === nowParts.day;
 
   if (sameDay) {
-    return toPersianDigits(
-      date.toLocaleTimeString("fa-IR", {
-        timeZone: TEHRAN_TZ,
-        hour: "2-digit",
-        minute: "2-digit",
-        hour12: false,
-      })
-    );
+    return toPersianDigits(time);
   }
 
-  return toPersianDigits(
-    date.toLocaleString("fa-IR", {
-      timeZone: TEHRAN_TZ,
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
-      hour12: false,
-    })
-  );
+  const dateLabel = formatTehranDateLabel(parts, { month: "short", day: "numeric" });
+  return toPersianDigits(`${dateLabel} ${time}`);
 }
