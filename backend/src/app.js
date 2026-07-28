@@ -54,7 +54,30 @@ function buildApp() {
   app.use(cookieParser());
   app.use(ensureSeeded);
 
-  app.get("/api/health", (req, res) => res.json({ ok: true }));
+  app.get("/api/health", async (req, res) => {
+    try {
+      const db = require("./db");
+      const result = await db.query(
+        "SELECT now() AS db_now, current_setting('TIMEZONE') AS db_timezone"
+      );
+      const row = result.rows[0];
+      const dbNow =
+        row.db_now instanceof Date ? row.db_now.toISOString() : String(row.db_now);
+      res.json({
+        ok: true,
+        serverNow: new Date().toISOString(),
+        dbNow,
+        dbTimezone: row.db_timezone,
+        displayTimezone: "Asia/Tehran",
+      });
+    } catch (err) {
+      res.status(500).json({
+        ok: false,
+        serverNow: new Date().toISOString(),
+        error: err.message,
+      });
+    }
+  });
 
   app.use("/api/auth", authRoutes);
   app.use("/api/tickets", ticketRoutes);

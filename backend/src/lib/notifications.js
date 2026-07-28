@@ -96,7 +96,10 @@ const NOTIFICATION_BASE_SQL = `
     (
       SELECT row_to_json(last_msg)
       FROM (
-        SELECT c.body, c.created_at, u.display_name AS author_name
+        SELECT
+          c.body,
+          to_char(timezone('UTC', c.created_at), 'YYYY-MM-DD"T"HH24:MI:SS.MS"Z"') AS created_at,
+          u.display_name AS author_name
         FROM ticket_comments c
         JOIN users u ON u.id = c.author_id
         WHERE c.ticket_id = t.id

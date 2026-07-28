@@ -44,11 +44,17 @@ export function formatMinutesAsHours(minutes) {
 
 const TEHRAN_TZ = "Asia/Tehran";
 
-/** Parse API timestamps consistently (DB values are UTC). */
+/** Parse API timestamps consistently (values are UTC instants). */
 export function parseAppDate(value) {
-  if (!value) return null;
+  if (!value && value !== 0) return null;
   if (value instanceof Date) {
     return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "number") {
+    const ms = value < 1e12 ? value * 1000 : value;
+    const d = new Date(ms);
+    return Number.isNaN(d.getTime()) ? null : d;
   }
 
   const raw = String(value).trim();
@@ -60,13 +66,13 @@ export function parseAppDate(value) {
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  // Already has timezone / Z
+  // Already has timezone / Z — absolute instant
   if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw)) {
     const d = new Date(raw);
     return Number.isNaN(d.getTime()) ? null : d;
   }
 
-  // No timezone from DB/driver — treat as UTC
+  // No timezone: API/DB should send UTC; append Z so browsers don't use local OS TZ
   const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
   const d = new Date(`${normalized}Z`);
   return Number.isNaN(d.getTime()) ? null : d;

@@ -8,6 +8,8 @@ services:
       POSTGRES_DB: ticketing
       POSTGRES_USER: ticketing_user
       POSTGRES_PASSWORD: ticketing_pass
+      TZ: Asia/Tehran
+      PGTZ: Asia/Tehran
     ports:
       - "5432:5432"
     volumes:
@@ -27,6 +29,7 @@ services:
         condition: service_healthy
     environment:
       PORT: 4000
+      TZ: Asia/Tehran
       CORS_ORIGIN: http://localhost:8080,http://127.0.0.1:8080,http://localhost:4000
       DATABASE_URL: postgres://ticketing_user:ticketing_pass@postgres:5432/ticketing
       JWT_SECRET: dev-only-secret-change-in-production
