@@ -5,7 +5,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { useAuth } from "@/hooks/useAuth";
 import { useNotifications } from "@/hooks/useNotifications";
 import { api } from "@/lib/api";
-import { formatDateTimeFa } from "@/lib/format";
+import { formatMessageTimeFa } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -93,7 +93,7 @@ export function TicketChat({ ticketId, initialComments = [] }) {
                     {isMine ? "شما" : m.author_name}
                   </span>
                   <span className={cn("fa-num text-[10px]", isMine ? "text-primary-foreground/70" : "text-muted-foreground")}>
-                    {formatDateTimeFa(m.created_at)}
+                    {formatMessageTimeFa(m.created_at)}
                   </span>
                 </div>
                 <p className="whitespace-pre-wrap text-sm leading-relaxed">{m.body}</p>

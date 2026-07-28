@@ -8,6 +8,13 @@ const pool = new Pool({
   connectionString: config.DATABASE_URL,
 });
 
+// Store/read timestamptz consistently as UTC so clients can convert to Asia/Tehran.
+pool.on("connect", (client) => {
+  client.query("SET timezone TO 'UTC'").catch((err) => {
+    console.warn("Could not set DB session timezone to UTC:", err.message);
+  });
+});
+
 pool.on("error", (err) => {
   console.error("Unexpected PostgreSQL error", err);
 });

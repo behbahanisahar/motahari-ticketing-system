@@ -6,7 +6,7 @@ import { Input } from "@/components/ui/input";
 import { StatusBadge } from "@/components/StatusBadges";
 import { useNotifications } from "@/hooks/useNotifications";
 import { api } from "@/lib/api";
-import { formatDateTimeFa, formatNumber, toPersianDigits } from "@/lib/format";
+import { formatMessageTimeFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 8;
@@ -215,7 +215,7 @@ export function NotificationPanel() {
                               )}
                               {item.lastMessage && (
                                 <p className="fa-num mt-2 text-xs font-medium text-muted-foreground">
-                                  {formatDateTimeFa(item.lastMessage.created_at)}
+                                  {formatMessageTimeFa(item.lastMessage.created_at)}
                                 </p>
                               )}
                             </div>

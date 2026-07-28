@@ -8,6 +8,7 @@ const {
   markTicketRead,
   getUnreadCountForTicket,
   enrichComment,
+  toIsoUtc,
 } = require("../lib/notifications");
 const { emitNewMessage } = require("../socket");
 
@@ -281,7 +282,16 @@ router.get("/:id", requireAuth, async (req, res) => {
     [req.params.id]
   );
   const unreadCount = await getUnreadCountForTicket(req.user.id, ticket.id);
-  res.json({ ...ticket, comments: comments.rows, unreadCount });
+  res.json({
+    ...ticket,
+    created_at: toIsoUtc(ticket.created_at),
+    updated_at: toIsoUtc(ticket.updated_at),
+    comments: comments.rows.map((c) => ({
+      ...c,
+      created_at: toIsoUtc(c.created_at),
+    })),
+    unreadCount,
+  });
 });
 
 // Update ticket fields (admin only: status, IT priority, assignee, category)

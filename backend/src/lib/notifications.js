@@ -43,7 +43,30 @@ async function getUnreadCountForTicket(userId, ticketId) {
   return result.rows[0].count;
 }
 
+function toIsoUtc(value) {
+  if (value == null || value === "") return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value.toISOString();
+  }
+  const raw = String(value).trim();
+  if (!raw) return null;
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw)) {
+    const parsed = new Date(raw);
+    return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
+  }
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const parsed = new Date(`${normalized}Z`);
+  return Number.isNaN(parsed.getTime()) ? raw : parsed.toISOString();
+}
+
 function mapNotificationRow(row) {
+  const lastMessage = row.last_message
+    ? {
+        ...row.last_message,
+        created_at: toIsoUtc(row.last_message.created_at),
+      }
+    : null;
+
   return {
     ticketId: row.ticket_id,
     ticketNumber: row.ticket_number,
@@ -51,7 +74,7 @@ function mapNotificationRow(row) {
     status: row.status,
     unreadCount: row.unread_count,
     isRead: row.unread_count === 0,
-    lastMessage: row.last_message,
+    lastMessage,
   };
 }
 
@@ -234,7 +257,12 @@ async function enrichComment(commentId) {
      WHERE c.id = $1`,
     [commentId]
   );
-  return result.rows[0] || null;
+  const row = result.rows[0];
+  if (!row) return null;
+  return {
+    ...row,
+    created_at: toIsoUtc(row.created_at),
+  };
 }
 
 module.exports = {
@@ -246,4 +274,5 @@ module.exports = {
   getNotificationSummary,
   getDashboardMessageStats,
   enrichComment,
+  toIsoUtc,
 };

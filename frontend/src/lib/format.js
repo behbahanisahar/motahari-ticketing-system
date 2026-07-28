@@ -42,20 +42,96 @@ export function formatMinutesAsHours(minutes) {
   return `${formatNumber(hours)} ساعت`;
 }
 
+const TEHRAN_TZ = "Asia/Tehran";
+
+/** Parse API timestamps consistently (DB values are UTC). */
+export function parseAppDate(value) {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  const raw = String(value).trim();
+  if (!raw) return null;
+
+  // Date-only: keep calendar day stable in Tehran noon.
+  if (/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+    const d = new Date(`${raw}T12:00:00+03:30`);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // Already has timezone / Z
+  if (/[zZ]|[+-]\d{2}:?\d{2}$/.test(raw)) {
+    const d = new Date(raw);
+    return Number.isNaN(d.getTime()) ? null : d;
+  }
+
+  // No timezone from DB/driver — treat as UTC
+  const normalized = raw.includes("T") ? raw : raw.replace(" ", "T");
+  const d = new Date(`${normalized}Z`);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
 export function formatDateFa(iso, options = { month: "short", day: "numeric" }) {
-  if (!iso) return "";
-  return toPersianDigits(new Date(iso).toLocaleDateString("fa-IR", options));
+  const date = parseAppDate(iso);
+  if (!date) return "";
+  return toPersianDigits(
+    date.toLocaleDateString("fa-IR", {
+      timeZone: TEHRAN_TZ,
+      ...options,
+    })
+  );
 }
 
 export function formatDateTimeFa(iso) {
-  if (!iso) return "";
+  const date = parseAppDate(iso);
+  if (!date) return "";
   return toPersianDigits(
-    new Date(iso).toLocaleString("fa-IR", {
+    date.toLocaleString("fa-IR", {
+      timeZone: TEHRAN_TZ,
       year: "numeric",
       month: "long",
       day: "numeric",
       hour: "2-digit",
       minute: "2-digit",
+      hour12: false,
+    })
+  );
+}
+
+/** Compact Tehran time for chat bubbles and notification rows. */
+export function formatMessageTimeFa(iso) {
+  const date = parseAppDate(iso);
+  if (!date) return "";
+
+  const now = new Date();
+  const tehranNow = new Date(now.toLocaleString("en-US", { timeZone: TEHRAN_TZ }));
+  const tehranDate = new Date(date.toLocaleString("en-US", { timeZone: TEHRAN_TZ }));
+
+  const sameDay =
+    tehranNow.getFullYear() === tehranDate.getFullYear() &&
+    tehranNow.getMonth() === tehranDate.getMonth() &&
+    tehranNow.getDate() === tehranDate.getDate();
+
+  if (sameDay) {
+    return toPersianDigits(
+      date.toLocaleTimeString("fa-IR", {
+        timeZone: TEHRAN_TZ,
+        hour: "2-digit",
+        minute: "2-digit",
+        hour12: false,
+      })
+    );
+  }
+
+  return toPersianDigits(
+    date.toLocaleString("fa-IR", {
+      timeZone: TEHRAN_TZ,
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: false,
     })
   );
 }
