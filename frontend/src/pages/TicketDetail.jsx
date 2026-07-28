@@ -40,9 +40,13 @@ export default function TicketDetail() {
     try {
       await api.updateTicket(id, payload);
       toast.success("تیکت به‌روزرسانی شد.");
-      load();
+      try {
+        await api.ticket(id).then(setTicket);
+      } catch (_) {
+        load();
+      }
     } catch (err) {
-      toast.error(err.message);
+      toast.error(err.message || "خطا در ارتباط با سرور. دوباره تلاش کنید.");
     }
   };
 
@@ -53,6 +57,7 @@ export default function TicketDetail() {
   const status = ticketStatus(ticket);
   const requesterPriority = ticketRequesterPriority(ticket);
   const itPriority = ticketItPriority(ticket);
+  const isClosed = status === "done" || status === "rejected";
 
   return (
     <div className="section-gap">
@@ -132,58 +137,66 @@ export default function TicketDetail() {
         {isAdmin && (
           <div className="border-t border-slate-100 bg-slate-50/80 px-5 py-5 sm:px-6">
             <p className="mb-4 text-sm font-bold text-slate-800">مدیریت تیکت</p>
-            <div className="grid gap-4 sm:grid-cols-2">
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-slate-500">وضعیت پیگیری</span>
-                <Select value={status} onValueChange={(v) => handleUpdate({ status: v })}>
-                  <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    {STATUSES.map((s) => (
-                      <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+            {isClosed ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                این تیکت {status === "rejected" ? "رد شده" : "انجام شده"} است و دیگر قابل ویرایش نیست.
               </div>
-              <div className="flex flex-col gap-1.5">
-                <span className="text-xs font-semibold text-slate-500">مسئول پیگیری</span>
-                <Select
-                  value={ticket.assigned_to ? String(ticket.assigned_to) : "none"}
-                  onValueChange={(v) => handleUpdate({ assignedTo: v === "none" ? null : Number(v) })}
-                >
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="تعیین نشده" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">تعیین نشده</SelectItem>
-                    {admins.map((a) => (
-                      <SelectItem key={a.id} value={String(a.id)}>{a.display_name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="flex flex-col gap-1.5 sm:col-span-2">
-                <span className="text-xs font-semibold text-slate-500">دسته‌بندی تیکت</span>
-                <Select
-                  value={ticket.category || "none"}
-                  onValueChange={(v) => handleUpdate({ category: v === "none" ? null : v })}
-                >
-                  <SelectTrigger className="bg-white"><SelectValue placeholder="انتخاب دسته" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="none">تعیین نشده</SelectItem>
-                    {TICKET_CATEGORIES.map((c) => (
-                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-
-              <div className="mt-5 flex flex-col gap-2.5">
-                <Label className="text-sm font-semibold text-slate-800">فوریت پیگیری برای IT</Label>
-                <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
-                  <span>فوریت درخواست‌کننده:</span>
-                  <PriorityBadge value={requesterPriority} />
+            ) : (
+              <>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold text-slate-500">وضعیت پیگیری</span>
+                    <Select value={status} onValueChange={(v) => handleUpdate({ status: v })}>
+                      <SelectTrigger className="bg-white"><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {STATUSES.map((s) => (
+                          <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold text-slate-500">مسئول پیگیری</span>
+                    <Select
+                      value={ticket.assigned_to ? String(ticket.assigned_to) : "none"}
+                      onValueChange={(v) => handleUpdate({ assignedTo: v === "none" ? null : Number(v) })}
+                    >
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="تعیین نشده" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">تعیین نشده</SelectItem>
+                        {admins.map((a) => (
+                          <SelectItem key={a.id} value={String(a.id)}>{a.display_name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="flex flex-col gap-1.5 sm:col-span-2">
+                    <span className="text-xs font-semibold text-slate-500">دسته‌بندی تیکت</span>
+                    <Select
+                      value={ticket.category || "none"}
+                      onValueChange={(v) => handleUpdate({ category: v === "none" ? null : v })}
+                    >
+                      <SelectTrigger className="bg-white"><SelectValue placeholder="انتخاب دسته" /></SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="none">تعیین نشده</SelectItem>
+                        {TICKET_CATEGORIES.map((c) => (
+                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
                 </div>
-                <PriorityPicker value={itPriority} onChange={(v) => handleUpdate({ priority: v })} />
-              </div>
+
+                <div className="mt-5 flex flex-col gap-2.5">
+                  <Label className="text-sm font-semibold text-slate-800">فوریت پیگیری برای IT</Label>
+                  <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                    <span>فوریت درخواست‌کننده:</span>
+                    <PriorityBadge value={requesterPriority} />
+                  </div>
+                  <PriorityPicker value={itPriority} onChange={(v) => handleUpdate({ priority: v })} />
+                </div>
+              </>
+            )}
           </div>
         )}
       </section>

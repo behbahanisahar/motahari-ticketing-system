@@ -2,13 +2,13 @@
 
 This is your **hospital LAN production** host — not Vercel and not your laptop.
 
-**Live URL:** http://192.168.113.239:4000
+**Live URL:** http://192.168.113.239:8080
 
 ## What you need on that server
 
 1. Docker Desktop (Windows) or Docker Engine (Linux)
 2. This project folder copied onto that machine
-3. Port **4000** allowed in the Windows/Linux firewall for the LAN
+3. Port **8080** allowed in the Windows/Linux firewall for the LAN
 
 ## Deploy (on the production machine)
 
@@ -31,7 +31,7 @@ Check it is running:
 docker compose -f docker-compose.yml -f docker-compose.lan.yml ps
 ```
 
-Then open http://192.168.113.239:4000 from any PC on the hospital network.
+Then open http://192.168.113.239:8080 from any PC on the hospital network.
 
 ## Update (redeploy new code)
 

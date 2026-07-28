@@ -1,6 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { asyncHandler } = require("../lib/asyncHandler");
 const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
 const {
   getMessageRecipientIds,
@@ -284,7 +285,10 @@ router.get("/:id", requireAuth, async (req, res) => {
 });
 
 // Update ticket fields (admin only: status, IT priority, assignee, category)
-router.patch("/:id", requireAuth, async (req, res) => {
+router.patch(
+  "/:id",
+  requireAuth,
+  asyncHandler(async (req, res) => {
   const { status, priority, assignedTo, category } = req.body || {};
 
   const ticketRes = await db.query("SELECT * FROM tickets WHERE id = $1", [req.params.id]);
@@ -293,6 +297,12 @@ router.patch("/:id", requireAuth, async (req, res) => {
 
   const isAdmin = req.user.role === "admin";
   if (!isAdmin) return res.status(403).json({ error: "فقط مدیر می‌تواند تیکت را به‌روزرسانی کند." });
+
+  const isClosed = ticket.status === "done" || ticket.status === "rejected";
+  if (isClosed) {
+    return res.status(403).json({ error: "تیکت‌های انجام‌شده یا ردشده قابل ویرایش نیستند." });
+  }
+
   const fields = [];
   const params = [];
 
@@ -348,7 +358,8 @@ router.patch("/:id", requireAuth, async (req, res) => {
   }
 
   res.json(updated);
-});
+  })
+);
 
 // Add a comment (owner or admin)
 router.post("/:id/comments", requireAuth, async (req, res) => {

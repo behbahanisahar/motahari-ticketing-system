@@ -6,14 +6,15 @@ Run **on the production machine** (the PC/server that owns `192.168.113.239`):
 docker compose -f docker-compose.yml -f docker-compose.lan.yml up --build -d
 ```
 
-Open: **http://192.168.113.239:4000**
+Open: **http://192.168.113.239:8080**
 
 services:
   backend:
     environment:
       CORS_ORIGIN: >-
-        http://192.168.113.239:4000,
+        http://192.168.113.239:8080,
         http://192.168.113.239,
+        http://localhost:8080,
         http://localhost:4000,
         http://localhost
       COOKIE_SECURE: "false"
@@ -21,4 +22,4 @@ services:
 
   frontend:
     ports:
-      - "4000:80"
+      - "8080:80"

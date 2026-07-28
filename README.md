@@ -19,7 +19,7 @@ Want to just try it out on your laptop, no Active Directory, no `.env` editing?
 docker compose up --build
 ```
 
-Then open **http://localhost:4000** and log in with:
+Then open **http://localhost:8080** and log in with:
 
 | Username | Password | Role |
 |----------|----------|------|
@@ -42,7 +42,7 @@ turns off automatically and real AD login takes over.
 
 ---
 
-## 0b. Open on LAN IP (e.g. `http://192.168.113.239:4000`)
+## 0b. Open on LAN IP (e.g. `http://192.168.113.239:8080`)
 
 Hospital **production** is the machine at `192.168.113.239` — see [PRODUCTION.md](./PRODUCTION.md).
 
@@ -52,7 +52,7 @@ On that machine:
 npm run lan:up
 ```
 
-Then open **http://192.168.113.239:4000** from any PC on the same network.
+Then open **http://192.168.113.239:8080** from any PC on the same network.
 
 To stop:
 
