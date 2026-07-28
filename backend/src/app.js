@@ -6,6 +6,7 @@ const cors = require("cors");
 const cookieParser = require("cookie-parser");
 const config = require("./config");
 const { seedAdmins } = require("./seed");
+const { ensureSchema } = require("./ensureSchema");
 
 const authRoutes = require("./routes/auth");
 const ticketRoutes = require("./routes/tickets");
@@ -22,10 +23,12 @@ let seedPromise = null;
 
 function ensureSeeded(req, res, next) {
   if (!seedPromise) {
-    seedPromise = seedAdmins().catch((err) => {
-      seedPromise = null;
-      throw err;
-    });
+    seedPromise = ensureSchema()
+      .then(() => seedAdmins())
+      .catch((err) => {
+        seedPromise = null;
+        throw err;
+      });
   }
   seedPromise.then(() => next()).catch(next);
 }
@@ -80,10 +83,12 @@ function buildApp() {
 async function initApp() {
   if (appInstance) return appInstance;
   if (!initPromise) {
-    initPromise = seedAdmins().then(() => {
-      appInstance = buildApp();
-      return appInstance;
-    });
+    initPromise = ensureSchema()
+      .then(() => seedAdmins())
+      .then(() => {
+        appInstance = buildApp();
+        return appInstance;
+      });
   }
   return initPromise;
 }

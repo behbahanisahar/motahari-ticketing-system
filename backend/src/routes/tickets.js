@@ -317,7 +317,7 @@ router.patch(
     fields.push(`priority = $${params.length}`);
   }
   if (category !== undefined) {
-    if (category !== null && category !== "" && !CATEGORIES.includes(category)) {
+    if (category !== null && category !== "" && !(CATEGORIES || []).includes(category)) {
       return res.status(400).json({ error: "دسته‌بندی نامعتبر است." });
     }
     params.push(category || null);
@@ -340,10 +340,21 @@ router.patch(
   if (fields.length === 0) return res.status(400).json({ error: "هیچ تغییری ارسال نشده است." });
 
   params.push(req.params.id);
-  const result = await db.query(
-    `UPDATE tickets SET ${fields.join(", ")} WHERE id = $${params.length} RETURNING *`,
-    params
-  );
+  let result;
+  try {
+    result = await db.query(
+      `UPDATE tickets SET ${fields.join(", ")} WHERE id = $${params.length} RETURNING *`,
+      params
+    );
+  } catch (err) {
+    if (err && /category/i.test(String(err.message || ""))) {
+      console.error("Ticket category update failed:", err.message);
+      return res.status(500).json({
+        error: "ستون دسته‌بندی در دیتابیس آماده نیست. سرور را یک‌بار ری‌استارت کنید.",
+      });
+    }
+    throw err;
+  }
   if (result.rows.length === 0) return res.status(404).json({ error: "تیکت یافت نشد." });
 
   const updated = result.rows[0];
