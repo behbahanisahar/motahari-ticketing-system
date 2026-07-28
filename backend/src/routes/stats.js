@@ -1,10 +1,37 @@
 const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
+const { asyncHandler } = require("../lib/asyncHandler");
 const { PERSIAN_MONTHS, resolvePeriod, currentShamsi } = require("../lib/shamsi");
-const { STATUSES, PRIORITIES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
+const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
 
 const router = express.Router();
+const TICKETS_DETAIL_LIMIT = 100;
+
+let categoryColumnReady = null;
+
+async function ticketsHaveCategoryColumn() {
+  if (categoryColumnReady != null) return categoryColumnReady;
+  try {
+    const result = await db.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'tickets'
+         AND column_name = 'category'
+       LIMIT 1`
+    );
+    categoryColumnReady = result.rows.length > 0;
+  } catch (_) {
+    categoryColumnReady = false;
+  }
+  return categoryColumnReady;
+}
+
+function bump(map, key) {
+  if (key == null || key === "") return;
+  map[key] = (map[key] || 0) + 1;
+}
 
 router.get("/calendar", requireAuth, requireRole("admin"), (req, res) => {
   const now = currentShamsi();
@@ -15,145 +42,136 @@ router.get("/calendar", requireAuth, requireRole("admin"), (req, res) => {
   });
 });
 
-router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
-  const now = currentShamsi();
-  const jYear = parseInt(req.query.jYear, 10) || now.jy;
-  const jMonth = req.query.jMonth === "all" ? "all" : parseInt(req.query.jMonth, 10) || now.jm;
-  const { status, department } = req.query;
+router.get(
+  "/",
+  requireAuth,
+  requireRole("admin"),
+  asyncHandler(async (req, res) => {
+    const now = currentShamsi();
+    const jYear = parseInt(req.query.jYear, 10) || now.jy;
+    const jMonth = req.query.jMonth === "all" ? "all" : parseInt(req.query.jMonth, 10) || now.jm;
+    const { status, department } = req.query;
 
-  if (jMonth !== "all" && (jMonth < 1 || jMonth > 12)) {
-    return res.status(400).json({ error: "ماه شمسی نامعتبر است." });
-  }
+    if (jMonth !== "all" && (jMonth < 1 || jMonth > 12)) {
+      return res.status(400).json({ error: "ماه شمسی نامعتبر است." });
+    }
 
-  const period = resolvePeriod(jYear, jMonth);
-  const params = [period.start, period.end];
-  let extraClauses = "";
+    const period = resolvePeriod(jYear, jMonth);
+    const params = [period.start, period.end];
+    let extraClauses = "";
 
-  if (status && STATUSES.includes(status)) {
-    params.push(status);
-    extraClauses += ` AND t.status = $${params.length}`;
-  }
-  if (department) {
-    params.push(department);
-    extraClauses += ` AND t.team = $${params.length}`;
-  }
+    if (status && STATUSES.includes(status)) {
+      params.push(status);
+      extraClauses += ` AND t.status = $${params.length}`;
+    }
+    if (department) {
+      params.push(department);
+      extraClauses += ` AND t.team = $${params.length}`;
+    }
 
-  const ticketFilter = `t.created_at >= $1::timestamptz AND t.created_at <= $2::timestamptz${extraClauses}`;
+    const ticketFilter = `t.created_at >= $1::timestamptz AND t.created_at <= $2::timestamptz${extraClauses}`;
+    const hasCategory = await ticketsHaveCategoryColumn();
+    const categorySelect = hasCategory ? "t.category" : "NULL::varchar AS category";
 
-  const [
-    byStatusRes,
-    byDeptRes,
-    byAdminRes,
-    byPriorityRes,
-    byCategoryRes,
-    summaryRes,
-    ticketsRes,
-  ] = await Promise.all([
-    db.query(
-      `SELECT t.status, COUNT(*)::int AS count
-       FROM tickets t WHERE ${ticketFilter}
-       GROUP BY t.status ORDER BY count DESC`,
-      params
-    ),
-    db.query(
-      `SELECT t.team AS department, COUNT(*)::int AS count
-       FROM tickets t WHERE ${ticketFilter}
-       GROUP BY t.team ORDER BY t.team ASC`,
-      params
-    ),
-    db.query(
-      `SELECT u.id, u.username, u.display_name,
-              COUNT(t.id)::int AS assigned_count,
-              COUNT(*) FILTER (WHERE t.status = 'done')::int AS done_count,
-              COUNT(*) FILTER (WHERE t.status = 'in_progress')::int AS in_progress_count,
-              COUNT(*) FILTER (WHERE t.status = 'queued')::int AS queued_count,
-              COUNT(*) FILTER (WHERE t.status = 'rejected')::int AS rejected_count
-       FROM users u
-       LEFT JOIN tickets t ON t.assigned_to = u.id AND ${ticketFilter}
-       WHERE u.role = 'admin' AND u.is_active = true
-       GROUP BY u.id, u.username, u.display_name
-       ORDER BY assigned_count DESC, done_count DESC`,
-      params
-    ),
-    db.query(
-      `SELECT t.priority, COUNT(*)::int AS count
-       FROM tickets t WHERE ${ticketFilter}
-       GROUP BY t.priority ORDER BY count DESC`,
-      params
-    ),
-    db.query(
-      `SELECT COALESCE(t.category, 'none') AS category, COUNT(*)::int AS count
-       FROM tickets t WHERE ${ticketFilter}
-       GROUP BY COALESCE(t.category, 'none') ORDER BY count DESC`,
-      params
-    ),
-    db.query(
-      `SELECT
-         COUNT(*)::int AS total,
-         COUNT(*) FILTER (WHERE t.assigned_to IS NULL)::int AS unassigned,
-         COUNT(DISTINCT t.requester_id)::int AS unique_requesters,
-         ROUND(AVG(EXTRACT(EPOCH FROM (t.updated_at - t.created_at)) / 3600)
-           FILTER (WHERE t.status = 'done'), 1)::float AS avg_resolution_hours
-       FROM tickets t WHERE ${ticketFilter}`,
-      params
-    ),
-    db.query(
-      `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority, t.category,
-              t.computer_name, t.created_at, t.updated_at,
-              u.display_name AS requester_name,
-              a.display_name AS assignee_name
-       FROM tickets t
-       JOIN users u ON u.id = t.requester_id
-       LEFT JOIN users a ON a.id = t.assigned_to
-       WHERE ${ticketFilter}
-       ORDER BY t.created_at DESC`,
-      params
-    ),
-  ]);
+    const [ticketsRes, byAdminRes] = await Promise.all([
+      db.query(
+        `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority,
+                ${categorySelect},
+                t.computer_name, t.created_at, t.updated_at, t.assigned_to, t.requester_id,
+                u.display_name AS requester_name,
+                a.display_name AS assignee_name
+         FROM tickets t
+         JOIN users u ON u.id = t.requester_id
+         LEFT JOIN users a ON a.id = t.assigned_to
+         WHERE ${ticketFilter}
+         ORDER BY t.created_at DESC`,
+        params
+      ),
+      db.query(
+        `SELECT u.id, u.username, u.display_name,
+                COUNT(t.id)::int AS assigned_count,
+                COUNT(*) FILTER (WHERE t.status = 'done')::int AS done_count,
+                COUNT(*) FILTER (WHERE t.status = 'in_progress')::int AS in_progress_count,
+                COUNT(*) FILTER (WHERE t.status = 'queued')::int AS queued_count,
+                COUNT(*) FILTER (WHERE t.status = 'rejected')::int AS rejected_count
+         FROM users u
+         LEFT JOIN tickets t ON t.assigned_to = u.id AND ${ticketFilter}
+         WHERE u.role = 'admin' AND u.is_active = true
+         GROUP BY u.id, u.username, u.display_name
+         ORDER BY assigned_count DESC, done_count DESC`,
+        params
+      ),
+    ]);
 
-  const summary = summaryRes.rows[0] || {
-    total: 0,
-    unassigned: 0,
-    unique_requesters: 0,
-    avg_resolution_hours: null,
-  };
+    const rows = ticketsRes.rows;
+    const byStatusMap = {};
+    const byPriorityMap = {};
+    const byCategoryMap = {};
+    const byDepartmentMap = {};
+    const requesterIds = new Set();
+    let unassigned = 0;
+    let resolutionSumHours = 0;
+    let resolutionCount = 0;
 
-  const byPriority = PRIORITIES.map((p) => {
-    const row = byPriorityRes.rows.find((r) => r.priority === p);
-    return { priority: p, count: row?.count || 0 };
-  });
+    for (const row of rows) {
+      bump(byStatusMap, row.status);
+      bump(byPriorityMap, row.priority);
+      bump(byCategoryMap, row.category || "none");
+      bump(byDepartmentMap, row.team);
+      if (row.requester_id != null) requesterIds.add(row.requester_id);
+      if (row.assigned_to == null) unassigned += 1;
+      if (row.status === "done" && row.updated_at && row.created_at) {
+        const hours = (new Date(row.updated_at) - new Date(row.created_at)) / 3600000;
+        if (Number.isFinite(hours) && hours >= 0) {
+          resolutionSumHours += hours;
+          resolutionCount += 1;
+        }
+      }
+    }
 
-  const byCategory = [
-    ...CATEGORIES.map((value) => {
-      const row = byCategoryRes.rows.find((r) => r.category === value);
-      return {
+    const byStatus = Object.entries(byStatusMap).map(([key, count]) => ({
+      status: key,
+      count,
+    }));
+    const byPriority = PRIORITIES.map((p) => ({
+      priority: p,
+      count: byPriorityMap[p] || 0,
+    }));
+    const byCategory = [
+      ...CATEGORIES.map((value) => ({
         category: value,
         label: CATEGORY_LABELS[value] || value,
-        count: row?.count || 0,
-      };
-    }),
-    {
-      category: "none",
-      label: "تعیین نشده",
-      count: byCategoryRes.rows.find((r) => r.category === "none")?.count || 0,
-    },
-  ];
+        count: byCategoryMap[value] || 0,
+      })),
+      {
+        category: "none",
+        label: "تعیین نشده",
+        count: byCategoryMap.none || 0,
+      },
+    ];
+    const byDepartment = Object.entries(byDepartmentMap)
+      .map(([departmentName, count]) => ({ department: departmentName, count }))
+      .sort((a, b) => a.department.localeCompare(b.department, "fa"));
 
-  res.json({
-    period: { jYear, jMonth: period.jMonth, label: period.label },
-    total: summary.total,
-    summary: {
-      unassigned: summary.unassigned,
-      uniqueRequesters: summary.unique_requesters,
-      avgResolutionHours: summary.avg_resolution_hours,
-    },
-    byStatus: byStatusRes.rows,
-    byPriority,
-    byCategory,
-    byDepartment: byDeptRes.rows,
-    byAdmin: byAdminRes.rows,
-    tickets: ticketsRes.rows,
-  });
-});
+    res.json({
+      period: { jYear, jMonth: period.jMonth, label: period.label },
+      total: rows.length,
+      summary: {
+        unassigned,
+        uniqueRequesters: requesterIds.size,
+        avgResolutionHours:
+          resolutionCount > 0 ? Math.round((resolutionSumHours / resolutionCount) * 10) / 10 : null,
+      },
+      byStatus,
+      byPriority,
+      byCategory,
+      byDepartment,
+      byAdmin: byAdminRes.rows,
+      tickets: rows.slice(0, TICKETS_DETAIL_LIMIT).map(({ assigned_to, requester_id, ...ticket }) => ticket),
+      ticketsLimited: rows.length > TICKETS_DETAIL_LIMIT,
+      ticketsLimit: TICKETS_DETAIL_LIMIT,
+    });
+  })
+);
 
 module.exports = router;

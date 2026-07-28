@@ -8,14 +8,16 @@ import { useClientTable } from "@/hooks/useClientTable";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
 import { STATUSES, ticketItPriority, ticketStatus, ticketCategoryMeta } from "@/lib/constants";
+import { currentJalaali, PERSIAN_MONTHS } from "@/lib/shamsi";
 import { formatDateFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
+const nowJalaali = currentJalaali();
 
-function FilterBar({ years, jYear, setJYear, jMonth, setJMonth, calendar, department, setDepartment, teams, status, setStatus }) {
+function FilterBar({ years, jYear, setJYear, jMonth, setJMonth, months, department, setDepartment, teams, status, setStatus }) {
   return (
     <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
       <Select value={String(jYear)} onValueChange={(v) => setJYear(Number(v))}>
@@ -31,7 +33,7 @@ function FilterBar({ years, jYear, setJYear, jMonth, setJMonth, calendar, depart
         <SelectTrigger className="border-slate-200 bg-white/95 dark:border-white/20"><SelectValue placeholder="ماه" /></SelectTrigger>
         <SelectContent>
           <SelectItem value="all">کل سال</SelectItem>
-          {calendar?.months.map((name, i) => (
+          {months.map((name, i) => (
             <SelectItem key={i + 1} value={String(i + 1)}>{name}</SelectItem>
           ))}
         </SelectContent>
@@ -77,7 +79,7 @@ const PRIORITY_BAR = {
 function ReportsOverview({ stats }) {
   const total = Math.max(1, stats.total || 0);
   const statusRows = STATUSES.map((s) => {
-    const count = stats.byStatus.find((r) => r.status === s.value)?.count || 0;
+    const count = (stats.byStatus || []).find((r) => r.status === s.value)?.count || 0;
     return { ...s, count, pct: (count / total) * 100 };
   });
   const priorityRows = (stats.byPriority || []).map((p) => ({
@@ -215,30 +217,42 @@ function ReportsOverview({ stats }) {
 }
 
 export default function AdminReports() {
-  const [years, setYears] = useState([]);
+  const [years] = useState(() => Array.from({ length: 7 }, (_, i) => nowJalaali.jy - 3 + i));
   const [teams, setTeams] = useState([]);
-  const [calendar, setCalendar] = useState(null);
-  const [jYear, setJYear] = useState(null);
+  const [jYear, setJYear] = useState(nowJalaali.jy);
   const [jMonth, setJMonth] = useState("all");
   const [status, setStatus] = useState("");
   const [department, setDepartment] = useState("");
   const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
   useEffect(() => {
-    api.statsCalendar().then((c) => {
-      setCalendar(c);
-      setJYear(c.jYear);
-      setYears(Array.from({ length: 7 }, (_, i) => c.jYear - 3 + i));
-    }).catch((err) => toast.error(err.message));
     api.teams().then((list) => setTeams([...list].sort((a, b) => a.name.localeCompare(b.name, "fa")))).catch(() => {});
   }, []);
 
   useEffect(() => {
-    if (!jYear) return;
+    let cancelled = false;
+    setLoading(true);
+    setError("");
     api
       .stats({ jYear, jMonth, status, department })
-      .then(setStats)
-      .catch((err) => toast.error(err.message));
+      .then((data) => {
+        if (!cancelled) setStats(data);
+      })
+      .catch((err) => {
+        if (!cancelled) {
+          setStats(null);
+          setError(err.message || "بارگذاری گزارش ناموفق بود.");
+          toast.error(err.message || "بارگذاری گزارش ناموفق بود.");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [jYear, jMonth, status, department]);
 
   const adminTable = useClientTable(stats?.byAdmin ?? null, {
@@ -260,6 +274,7 @@ export default function AdminReports() {
       "computer_name",
       "requester_name",
       "assignee_name",
+      "category",
     ],
   });
 
@@ -269,7 +284,13 @@ export default function AdminReports() {
     <div className="section-gap">
       <PageHeader
         title="گزارش عملکرد"
-        description={stats ? toPersianDigits(stats.period.label) : "در حال بارگذاری..."}
+        description={
+          loading
+            ? "در حال بارگذاری..."
+            : stats
+              ? toPersianDigits(stats.period.label)
+              : error || "گزارشی برای نمایش نیست."
+        }
       />
 
       <FilterBar
@@ -278,13 +299,25 @@ export default function AdminReports() {
         setJYear={setJYear}
         jMonth={jMonth}
         setJMonth={setJMonth}
-        calendar={calendar}
+        months={PERSIAN_MONTHS}
         department={department}
         setDepartment={setDepartment}
         teams={teams}
         status={status}
         setStatus={setStatus}
       />
+
+      {loading && !stats && (
+        <div className="rounded-[1.25rem] border border-white/20 bg-white/90 px-4 py-10 text-center text-sm text-slate-600">
+          در حال آماده‌سازی گزارش...
+        </div>
+      )}
+
+      {!loading && error && !stats && (
+        <div className="rounded-[1.25rem] border border-rose-200 bg-rose-50 px-4 py-10 text-center text-sm text-rose-800">
+          {error}
+        </div>
+      )}
 
       {stats && (
         <>
@@ -409,7 +442,11 @@ export default function AdminReports() {
           <section className="section-block">
             <h2 className="section-label flex items-center gap-2">
               <UserRound className="h-4 w-4 text-teal-300" />
-              جزئیات تیکت‌ها ({formatNumber(stats.tickets.length)})
+              جزئیات تیکت‌ها ({formatNumber(stats.tickets.length)}
+              {stats.ticketsLimited && stats.total > stats.tickets.length
+                ? ` از ${formatNumber(stats.total)}`
+                : ""}
+              )
             </h2>
             <TableToolbar
               query={ticketsTable.query}
