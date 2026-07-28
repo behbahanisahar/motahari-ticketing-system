@@ -7,7 +7,7 @@ import { ResponsiveTable } from "@/components/ResponsiveTable";
 import { useClientTable } from "@/hooks/useClientTable";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { STATUSES, ticketItPriority, ticketStatus } from "@/lib/constants";
+import { STATUSES, ticketItPriority, ticketStatus, ticketCategoryMeta } from "@/lib/constants";
 import { formatDateFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -83,6 +83,10 @@ function ReportsOverview({ stats }) {
   const priorityRows = (stats.byPriority || []).map((p) => ({
     ...p,
     pct: (p.count / total) * 100,
+  }));
+  const categoryRows = (stats.byCategory || []).map((c) => ({
+    ...c,
+    pct: (c.count / total) * 100,
   }));
 
   return (
@@ -179,6 +183,31 @@ function ReportsOverview({ stats }) {
               </div>
             ))}
           </div>
+        </div>
+      </div>
+
+      <div className="panel-on-canvas rounded-2xl p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <p className="text-sm font-semibold text-[hsl(var(--panel-on-canvas-text))]">توزیع دسته‌بندی</p>
+          <p className="panel-on-canvas-muted fa-num text-xs">{formatNumber(stats.total)} تیکت</p>
+        </div>
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+          {categoryRows.map((c) => (
+            <div key={c.category} className="rounded-xl border border-black/5 px-3 py-2.5 dark:border-white/10">
+              <div className="mb-1.5 flex items-center justify-between gap-2">
+                <span className="truncate text-sm text-[hsl(var(--panel-on-canvas-text))]">{c.label}</span>
+                <span className="fa-num shrink-0 text-sm font-bold text-[hsl(var(--panel-on-canvas-text))]">
+                  {formatNumber(c.count)}
+                </span>
+              </div>
+              <div className="panel-on-canvas-track h-1.5 overflow-hidden rounded-full">
+                <div
+                  className="h-full rounded-full bg-gradient-to-l from-teal-600 to-cyan-500"
+                  style={{ width: `${Math.max(c.pct, c.count > 0 ? 4 : 0)}%` }}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       </div>
     </section>
@@ -431,7 +460,13 @@ export default function AdminReports() {
                   key: "department",
                   label: "واحد",
                   hideOnMobile: true,
-                  render: (t) => t.department || "—",
+                  render: (t) => t.team || t.department || "—",
+                },
+                {
+                  key: "category",
+                  label: "دسته",
+                  hideOnMobile: true,
+                  render: (t) => ticketCategoryMeta(t.category).label,
                 },
                 {
                   key: "requester",

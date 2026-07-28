@@ -2,7 +2,7 @@ const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { PERSIAN_MONTHS, resolvePeriod, currentShamsi } = require("../lib/shamsi");
-const { STATUSES, PRIORITIES } = require("../lib/constants");
+const { STATUSES, PRIORITIES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
 
 const router = express.Router();
 
@@ -45,6 +45,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
     byDeptRes,
     byAdminRes,
     byPriorityRes,
+    byCategoryRes,
     summaryRes,
     ticketsRes,
   ] = await Promise.all([
@@ -81,6 +82,12 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
       params
     ),
     db.query(
+      `SELECT COALESCE(t.category, 'none') AS category, COUNT(*)::int AS count
+       FROM tickets t WHERE ${ticketFilter}
+       GROUP BY COALESCE(t.category, 'none') ORDER BY count DESC`,
+      params
+    ),
+    db.query(
       `SELECT
          COUNT(*)::int AS total,
          COUNT(*) FILTER (WHERE t.assigned_to IS NULL)::int AS unassigned,
@@ -91,7 +98,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
       params
     ),
     db.query(
-      `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority,
+      `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority, t.category,
               t.computer_name, t.created_at, t.updated_at,
               u.display_name AS requester_name,
               a.display_name AS assignee_name
@@ -116,6 +123,22 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
     return { priority: p, count: row?.count || 0 };
   });
 
+  const byCategory = [
+    ...CATEGORIES.map((value) => {
+      const row = byCategoryRes.rows.find((r) => r.category === value);
+      return {
+        category: value,
+        label: CATEGORY_LABELS[value] || value,
+        count: row?.count || 0,
+      };
+    }),
+    {
+      category: "none",
+      label: "تعیین نشده",
+      count: byCategoryRes.rows.find((r) => r.category === "none")?.count || 0,
+    },
+  ];
+
   res.json({
     period: { jYear, jMonth: period.jMonth, label: period.label },
     total: summary.total,
@@ -126,6 +149,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
     },
     byStatus: byStatusRes.rows,
     byPriority,
+    byCategory,
     byDepartment: byDeptRes.rows,
     byAdmin: byAdminRes.rows,
     tickets: ticketsRes.rows,

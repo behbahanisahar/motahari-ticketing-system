@@ -51,12 +51,22 @@ export const ticketItStatus = ticketStatus;
 export const WORK_CATEGORIES = [
   { value: "windows", label: "نصب ویندوز" },
   { value: "printer", label: "پرینتر" },
-  { value: "network", label: "شبکه و روتر" },
+  { value: "network", label: "شبکه و اینترنت" },
   { value: "hardware", label: "سخت‌افزار" },
   { value: "support", label: "پاسخ به سوال" },
+  { value: "rayavaran", label: "سیستم رایاوران" },
+  { value: "office_automation", label: "اتوماسیون اداری و چارگون" },
   { value: "other", label: "سایر" },
 ];
 
+/** Same taxonomy as work-log categories; used for IT ticket classification. */
+export const TICKET_CATEGORIES = WORK_CATEGORIES;
+
 export function workCategoryMeta(value) {
   return WORK_CATEGORIES.find((c) => c.value === value) || WORK_CATEGORIES[WORK_CATEGORIES.length - 1];
+}
+
+export function ticketCategoryMeta(value) {
+  if (!value) return { value: "", label: "تعیین نشده" };
+  return TICKET_CATEGORIES.find((c) => c.value === value) || { value, label: value };
 }

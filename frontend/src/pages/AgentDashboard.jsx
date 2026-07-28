@@ -6,8 +6,8 @@ import { ResponsiveTable } from "@/components/ResponsiveTable";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { ticketItPriority, ticketRequesterPriority, ticketStatus } from "@/lib/constants";
-import { PRIORITIES, STATUSES } from "@/lib/constants";
+import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
+import { PRIORITIES } from "@/lib/constants";
 import { formatDateFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -23,7 +23,7 @@ export default function AgentDashboard() {
   const { dashboard } = useNotifications();
   const [result, setResult] = useState(null);
   const [teams, setTeams] = useState([]);
-  const [filters, setFilters] = useState({ status: "", priority: "", team: "", q: "" });
+  const [filters, setFilters] = useState({ status: "", priority: "", team: "", category: "", q: "" });
   const [page, setPage] = useState(1);
   const [sortKey, setSortKey] = useState("priority:asc");
   const limit = 20;
@@ -94,7 +94,7 @@ export default function AgentDashboard() {
           onDark
         />
 
-        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-5">
           <Select value={filters.status || "all"} onValueChange={(v) => setFilter("status", v)}>
             <SelectTrigger className="border-slate-200 bg-white"><SelectValue placeholder="وضعیت پیگیری" /></SelectTrigger>
             <SelectContent>
@@ -111,6 +111,17 @@ export default function AgentDashboard() {
               <SelectItem value="all">همه اولویت‌ها</SelectItem>
               {PRIORITIES.map((p) => (
                 <SelectItem key={p.value} value={p.value}>{p.label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+
+          <Select value={filters.category || "all"} onValueChange={(v) => setFilter("category", v)}>
+            <SelectTrigger className="border-slate-200 bg-white"><SelectValue placeholder="دسته‌بندی" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">همه دسته‌ها</SelectItem>
+              <SelectItem value="none">تعیین نشده</SelectItem>
+              {TICKET_CATEGORIES.map((c) => (
+                <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
             </SelectContent>
           </Select>
@@ -176,6 +187,11 @@ export default function AgentDashboard() {
             },
             { key: "requester", label: "درخواست‌کننده", render: (t) => t.requester_name },
             { key: "team", label: "واحد", render: (t) => t.team },
+            {
+              key: "category",
+              label: "دسته",
+              render: (t) => ticketCategoryMeta(t.category).label,
+            },
             { key: "computer", label: "کامپیوتر", render: (t) => t.computer_name },
             {
               key: "requesterPriority",

@@ -4,14 +4,8 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-const VALID_CATEGORIES = new Set([
-  "windows",
-  "printer",
-  "network",
-  "support",
-  "hardware",
-  "other",
-]);
+const { CATEGORIES } = require("../lib/constants");
+const VALID_CATEGORIES = new Set(CATEGORIES);
 
 const VALID_STATUSES = new Set(["queued", "in_progress", "done", "rejected"]);
 

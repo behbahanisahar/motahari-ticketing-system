@@ -1,7 +1,7 @@
 const express = require("express");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
-const { PRIORITIES, STATUSES } = require("../lib/constants");
+const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
 const {
   getMessageRecipientIds,
   markTicketRead,
@@ -43,6 +43,16 @@ async function notifyRequesterOfTicketChanges({ ticket, updated, actorId }) {
     );
   }
 
+  if (updated.category !== ticket.category) {
+    if (updated.category) {
+      lines.push(
+        `دسته‌بندی تیکت به «${CATEGORY_LABELS[updated.category] || updated.category}» تغییر کرد.`
+      );
+    } else {
+      lines.push("دسته‌بندی تیکت برداشته شد.");
+    }
+  }
+
   const prevAssignee = ticket.assigned_to ?? null;
   const nextAssignee = updated.assigned_to ?? null;
   if (prevAssignee !== nextAssignee) {
@@ -76,7 +86,7 @@ async function notifyRequesterOfTicketChanges({ ticket, updated, actorId }) {
 }
 
 function buildFilterClauses(query) {
-  const { status, priority, team, q } = query;
+  const { status, priority, team, category, q } = query;
   const clauses = [];
   const params = [];
 
@@ -91,6 +101,12 @@ function buildFilterClauses(query) {
   if (team) {
     params.push(team);
     clauses.push(`t.team = $${params.length}`);
+  }
+  if (category === "none") {
+    clauses.push(`t.category IS NULL`);
+  } else if (category) {
+    params.push(category);
+    clauses.push(`t.category = $${params.length}`);
   }
   if (q) {
     params.push(`%${q}%`);
@@ -193,8 +209,7 @@ router.get("/mine", requireAuth, async (req, res) => {
 
 // List all tickets (admin only), with optional filters, pagination, and sorting
 router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
-  const { status, priority, team, q, sort = "priority", order } = req.query;
-
+  const { status, priority, team, category, q, sort = "priority", order } = req.query;
   const page = Math.max(1, parseInt(req.query.page, 10) || 1);
   const limit = Math.min(100, Math.max(10, parseInt(req.query.limit, 10) || 20));
   const offset = (page - 1) * limit;
@@ -204,7 +219,7 @@ router.get("/", requireAuth, requireRole("admin"), async (req, res) => {
   const sortOrder =
     order === "asc" || order === "desc" ? order : sortField === "created_at" ? "desc" : "asc";
 
-  const { clauses, params } = buildFilterClauses({ status, priority, team, q });
+  const { clauses, params } = buildFilterClauses({ status, priority, team, category, q });
   const where = clauses.length ? `WHERE ${clauses.join(" AND ")}` : "";
   const orderBy = buildOrderClause(sortField, sortOrder);
 
@@ -268,9 +283,9 @@ router.get("/:id", requireAuth, async (req, res) => {
   res.json({ ...ticket, comments: comments.rows, unreadCount });
 });
 
-// Update ticket fields (admin only: status, IT priority, assignee)
+// Update ticket fields (admin only: status, IT priority, assignee, category)
 router.patch("/:id", requireAuth, async (req, res) => {
-  const { status, priority, assignedTo } = req.body || {};
+  const { status, priority, assignedTo, category } = req.body || {};
 
   const ticketRes = await db.query("SELECT * FROM tickets WHERE id = $1", [req.params.id]);
   if (ticketRes.rows.length === 0) return res.status(404).json({ error: "تیکت یافت نشد." });
@@ -290,6 +305,13 @@ router.patch("/:id", requireAuth, async (req, res) => {
     if (!PRIORITIES.includes(priority)) return res.status(400).json({ error: "اولویت نامعتبر است." });
     params.push(priority);
     fields.push(`priority = $${params.length}`);
+  }
+  if (category !== undefined) {
+    if (category !== null && category !== "" && !CATEGORIES.includes(category)) {
+      return res.status(400).json({ error: "دسته‌بندی نامعتبر است." });
+    }
+    params.push(category || null);
+    fields.push(`category = $${params.length}`);
   }
   if (assignedTo !== undefined) {
     if (assignedTo !== null) {

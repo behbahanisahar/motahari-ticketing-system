@@ -30,6 +30,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   computer_name  VARCHAR(150) NOT NULL,
   requester_priority VARCHAR(20) NOT NULL DEFAULT 'medium',
   priority       VARCHAR(20) NOT NULL DEFAULT 'medium',
+  category       VARCHAR(50),
   requester_status VARCHAR(20) NOT NULL DEFAULT 'queued',
   status         VARCHAR(20) NOT NULL DEFAULT 'queued',
   assigned_to    INTEGER REFERENCES users(id),
@@ -41,6 +42,7 @@ CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
 CREATE INDEX IF NOT EXISTS idx_tickets_requester_status ON tickets(requester_status);
 CREATE INDEX IF NOT EXISTS idx_tickets_priority ON tickets(priority);
 CREATE INDEX IF NOT EXISTS idx_tickets_requester_priority ON tickets(requester_priority);
+CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets(category);
 CREATE INDEX IF NOT EXISTS idx_tickets_requester ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(created_at);

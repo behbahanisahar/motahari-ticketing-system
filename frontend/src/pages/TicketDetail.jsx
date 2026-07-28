@@ -7,7 +7,7 @@ import { TicketChat } from "@/components/TicketChat";
 import { PriorityPicker } from "@/components/PriorityPicker";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus } from "@/lib/constants";
+import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -106,6 +106,17 @@ export default function TicketDetail() {
               <span className="text-xs text-slate-500">فوریت شما</span>
               <PriorityBadge value={requesterPriority} />
             </div>
+            {isAdmin && (
+              <>
+                <span className="hidden h-4 w-px bg-slate-200 sm:block" />
+                <div className="inline-flex items-center gap-2">
+                  <span className="text-xs text-slate-500">دسته</span>
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">
+                    {ticketCategoryMeta(ticket.category).label}
+                  </span>
+                </div>
+              </>
+            )}
             {isAdmin && itPriority !== requesterPriority && (
               <>
                 <span className="hidden h-4 w-px bg-slate-200 sm:block" />
@@ -144,6 +155,21 @@ export default function TicketDetail() {
                     <SelectItem value="none">تعیین نشده</SelectItem>
                     {admins.map((a) => (
                       <SelectItem key={a.id} value={String(a.id)}>{a.display_name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="flex flex-col gap-1.5 sm:col-span-2">
+                <span className="text-xs font-semibold text-slate-500">دسته‌بندی تیکت</span>
+                <Select
+                  value={ticket.category || "none"}
+                  onValueChange={(v) => handleUpdate({ category: v === "none" ? null : v })}
+                >
+                  <SelectTrigger className="bg-white"><SelectValue placeholder="انتخاب دسته" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">تعیین نشده</SelectItem>
+                    {TICKET_CATEGORIES.map((c) => (
+                      <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
