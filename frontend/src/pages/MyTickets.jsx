@@ -143,7 +143,7 @@ export default function MyTickets() {
             key: "date",
             label: "تاریخ",
             className: "fa-num text-muted-foreground",
-            render: (t) => formatDateFa(t.created_at),
+            render: (t) => formatDateFa(t.created_at, { year: "numeric", month: "long", day: "numeric" }),
           },
         ]}
       />

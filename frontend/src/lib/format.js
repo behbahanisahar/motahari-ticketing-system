@@ -117,46 +117,37 @@ function toShamsi(parts) {
   return toJalaali(parts.year, parts.month + 1, parts.day);
 }
 
-function tehranGregorianIso(parts) {
-  return `${parts.year}-${pad2(parts.month + 1)}-${pad2(parts.day)}`;
-}
-
-/** Same style as worklog: «سه‌شنبه، ۷ مرداد ۱۴۰۵» */
-function formatShamsiLongFromParts(parts) {
+/** Shamsi label from Tehran calendar day. */
+function formatShamsiLabel(parts, options = {}) {
   const { jy, jm, jd } = toShamsi(parts);
-  const weekday = new Date(`${tehranGregorianIso(parts)}T12:00:00`).toLocaleDateString("fa-IR", {
-    weekday: "long",
-  });
-  return `${weekday}، ${jd} ${PERSIAN_MONTHS[jm - 1]} ${jy}`;
+  const withYear = options.year != null;
+  const withMonth = options.month != null;
+  const withDay = options.day != null;
+  const bits = [];
+  if (withDay) bits.push(String(jd));
+  if (withMonth) bits.push(PERSIAN_MONTHS[jm - 1]);
+  if (withYear) bits.push(String(jy));
+  return bits.join(" ");
 }
 
-/** Same style as worklog table cells: «۷ مرداد ۱۴۰۵» */
-function formatShamsiShortFromParts(parts) {
-  const { jy, jm, jd } = toShamsi(parts);
-  return `${jd} ${PERSIAN_MONTHS[jm - 1]} ${jy}`;
-}
-
-/**
- * Shamsi date like worklog.
- * @param {object} [options]
- * @param {'long'|'short'} [options.style='long'] long includes weekday
- */
-export function formatDateFa(iso, options = {}) {
+export function formatDateFa(iso, options = { month: "short", day: "numeric" }) {
   const date = parseAppDate(iso);
   if (!date) return "";
   const parts = getTehranParts(date);
-  const style = options.style === "short" ? "short" : "long";
-  // Legacy callers passed Intl-like options — treat as long (worklog) format.
-  const label = style === "short" ? formatShamsiShortFromParts(parts) : formatShamsiLongFromParts(parts);
-  return toPersianDigits(label);
+  return toPersianDigits(formatShamsiLabel(parts, options));
 }
 
 export function formatDateTimeFa(iso) {
   const date = parseAppDate(iso);
   if (!date) return "";
   const parts = getTehranParts(date);
+  const dateLabel = formatShamsiLabel(parts, {
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  });
   const time = `${pad2(parts.hour)}:${pad2(parts.minute)}`;
-  return toPersianDigits(`${formatShamsiLongFromParts(parts)}، ${time}`);
+  return toPersianDigits(`${dateLabel}، ${time}`);
 }
 
 /** Compact Tehran/Shamsi time for chat bubbles and notification rows. */
@@ -177,5 +168,6 @@ export function formatMessageTimeFa(iso) {
     return toPersianDigits(time);
   }
 
-  return toPersianDigits(`${formatShamsiShortFromParts(parts)} ${time}`);
+  const dateLabel = formatShamsiLabel(parts, { month: "short", day: "numeric" });
+  return toPersianDigits(`${dateLabel} ${time}`);
 }
