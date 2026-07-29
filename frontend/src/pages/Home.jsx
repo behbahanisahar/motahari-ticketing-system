@@ -15,6 +15,7 @@ import {
   Bell,
   CalendarDays,
   BookOpen,
+  Phone,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { StatusBadge } from "@/components/StatusBadges";
@@ -63,6 +64,7 @@ export default function Home() {
     { to: "/worklog", icon: ClipboardList, title: "دفتر کار روزانه" },
     { to: "/reports", icon: BarChart3, title: "گزارش‌ها" },
     { to: "/admin", icon: Users, title: "کاربران و واحدها" },
+    { to: "/phonebook", icon: Phone, title: "دفترچه تلفن داخلی" },
     { to: "/profile", icon: UserCircle, title: "پروفایل" },
     { to: "/guide", icon: BookOpen, title: "راهنمای استفاده" },
   ];

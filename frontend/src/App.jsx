@@ -18,6 +18,7 @@ import AdminReports from "@/pages/AdminReports";
 import Profile from "@/pages/Profile";
 import WorkLog from "@/pages/WorkLog";
 import UserGuide from "@/pages/UserGuide";
+import PhoneBook from "@/pages/PhoneBook";
 
 function RequireAuth({ children }) {
   const { user, loading } = useAuth();
@@ -130,6 +131,14 @@ export default function App() {
               element={
                 <Protected roles={["admin"]}>
                   <Shell><WorkLog /></Shell>
+                </Protected>
+              }
+            />
+            <Route
+              path="/phonebook"
+              element={
+                <Protected roles={["admin"]}>
+                  <Shell><PhoneBook /></Shell>
                 </Protected>
               }
             />

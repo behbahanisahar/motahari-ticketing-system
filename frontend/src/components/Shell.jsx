@@ -10,6 +10,7 @@ import {
   UserCircle,
   ClipboardList,
   BookOpen,
+  Phone,
 } from "lucide-react";
 import { Logo } from "@/components/Logo";
 import { NotificationPanel } from "@/components/NotificationPanel";
@@ -68,6 +69,7 @@ export function Shell({ children }) {
     { to: "/worklog", icon: ClipboardList, label: "کار روزانه" },
     { to: "/reports", icon: BarChart3, label: "گزارش‌ها" },
     { to: "/admin", icon: Users, label: "کاربران" },
+    { to: "/phonebook", icon: Phone, label: "داخلی‌ها" },
     { to: "/profile", icon: UserCircle, label: "پروفایل" },
     { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
