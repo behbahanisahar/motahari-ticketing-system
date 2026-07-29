@@ -64,7 +64,7 @@ export default function PhoneBook() {
     <div className="mx-auto flex w-full max-w-5xl flex-col gap-6">
       <PageHeader
         title="دفترچه تلفن داخلی"
-        description="شماره‌های داخلی مرکز — فقط برای مدیران. جستجو بر اساس نام واحد یا شماره."
+        description="شماره‌های داخلی مرکز. جستجو بر اساس نام واحد یا شماره."
       />
 
       <Card>
