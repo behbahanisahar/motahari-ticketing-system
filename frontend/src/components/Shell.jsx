@@ -15,6 +15,7 @@ import {
 import { Logo } from "@/components/Logo";
 import { NotificationPanel } from "@/components/NotificationPanel";
 import { MobileNav } from "@/components/MobileNav";
+import { AdminMoreMenu } from "@/components/AdminMoreMenu";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
 import { useAuth } from "@/hooks/useAuth";
@@ -63,18 +64,24 @@ export function Shell({ children }) {
     { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
 
-  const adminLinks = [
+  // Primary admin destinations stay in the bar; the rest live under «بیشتر».
+  const adminPrimaryLinks = [
     homeLink,
     { to: "/dashboard", icon: LayoutDashboard, label: "تیکت‌ها" },
     { to: "/worklog", icon: ClipboardList, label: "کار روزانه" },
     { to: "/reports", icon: BarChart3, label: "گزارش‌ها" },
+  ];
+
+  const adminMoreLinks = [
     { to: "/admin", icon: Users, label: "کاربران" },
     { to: "/phonebook", icon: Phone, label: "داخلی‌ها" },
     { to: "/profile", icon: UserCircle, label: "پروفایل" },
     { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
 
-  const links = isAdmin ? adminLinks : userLinks;
+  const desktopLinks = isAdmin ? adminPrimaryLinks : userLinks;
+  const mobileLinks = isAdmin ? adminPrimaryLinks : userLinks;
+  const mobileMoreLinks = isAdmin ? adminMoreLinks : [];
 
   return (
     <div className="min-h-full pb-[calc(5rem+env(safe-area-inset-bottom))] lg:pb-0">
@@ -84,13 +91,14 @@ export function Shell({ children }) {
             <Logo to="/" size={36} inverted={isDark} />
           </div>
 
-          <nav className="mx-auto hidden min-w-0 items-center gap-0.5 overflow-x-auto lg:flex">
-            {links.map(({ to, icon: Icon, label }) => (
+          <nav className="mx-auto hidden min-w-0 items-center gap-0.5 lg:flex">
+            {desktopLinks.map(({ to, icon: Icon, label }) => (
               <NavLink key={to} to={to} end={to === "/"} className={navLink}>
                 <Icon className="h-4 w-4 shrink-0" />
                 <span className="whitespace-nowrap">{label}</span>
               </NavLink>
             ))}
+            {isAdmin && <AdminMoreMenu links={adminMoreLinks} navLinkClass={navLink} />}
           </nav>
 
           <div className="ms-auto flex shrink-0 items-center gap-1.5 sm:gap-2">
@@ -114,7 +122,7 @@ export function Shell({ children }) {
         <div className="page-shell animate-slide-up">{children}</div>
       </main>
 
-      <MobileNav links={links} />
+      <MobileNav links={mobileLinks} moreLinks={mobileMoreLinks} />
     </div>
   );
 }
