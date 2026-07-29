@@ -52,7 +52,7 @@ export function AdminMoreMenu({ links, className, navLinkClass }) {
       {open && (
         <div
           role="menu"
-          className="absolute start-0 top-[calc(100%+0.5rem)] z-50 min-w-[13rem] overflow-hidden rounded-2xl border border-border/70 bg-white/95 p-1.5 shadow-xl shadow-slate-900/10 backdrop-blur-xl dark:bg-slate-900/95"
+          className="absolute start-0 top-[calc(100%+0.5rem)] z-50 min-w-[13rem] overflow-hidden rounded-2xl border border-slate-200/80 bg-white p-1.5 text-slate-900 shadow-xl shadow-slate-900/15 backdrop-blur-xl dark:border-white/15 dark:bg-slate-900 dark:text-slate-50"
         >
           {links.map(({ to, icon: Icon, label }) => (
             <NavLink
@@ -63,10 +63,10 @@ export function AdminMoreMenu({ links, className, navLinkClass }) {
               onClick={() => setOpen(false)}
               className={({ isActive }) =>
                 cn(
-                  "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-2.5 rounded-xl px-3 py-2.5 text-sm font-semibold transition-colors",
                   isActive
                     ? "bg-primary text-primary-foreground"
-                    : "text-foreground hover:bg-muted"
+                    : "text-slate-800 hover:bg-slate-100 dark:text-slate-100 dark:hover:bg-white/10"
                 )
               }
             >

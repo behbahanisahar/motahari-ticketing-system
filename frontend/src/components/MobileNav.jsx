@@ -36,13 +36,13 @@ export function MobileNav({ links, moreLinks = [] }) {
       )}
 
       {moreOpen && hasMore && (
-        <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 overflow-hidden rounded-[1.5rem] border border-white/70 bg-white/95 shadow-[0_16px_40px_rgb(15_23_42_/_0.18)] backdrop-blur-2xl lg:hidden dark:border-white/10 dark:bg-slate-900/95">
-          <div className="flex items-center justify-between border-b border-border/50 px-4 py-3">
-            <p className="text-sm font-bold text-foreground">سایر بخش‌ها</p>
+        <div className="fixed inset-x-3 bottom-[calc(5.25rem+env(safe-area-inset-bottom))] z-50 overflow-hidden rounded-[1.5rem] border border-slate-200/80 bg-white text-slate-900 shadow-[0_16px_40px_rgb(15_23_42_/_0.18)] backdrop-blur-2xl lg:hidden dark:border-white/15 dark:bg-slate-900 dark:text-slate-50">
+          <div className="flex items-center justify-between border-b border-slate-200/80 px-4 py-3 dark:border-white/10">
+            <p className="text-sm font-bold text-slate-900 dark:text-slate-50">سایر بخش‌ها</p>
             <button
               type="button"
               onClick={() => setMoreOpen(false)}
-              className="rounded-full p-1.5 text-muted-foreground hover:bg-muted"
+              className="rounded-full p-1.5 text-slate-500 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-white/10"
               aria-label="بستن"
             >
               <X className="h-4 w-4" />
@@ -60,7 +60,7 @@ export function MobileNav({ links, moreLinks = [] }) {
                     "flex flex-col items-center gap-2 rounded-2xl px-3 py-3.5 text-xs font-semibold transition-all",
                     isActive
                       ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
-                      : "bg-muted/60 text-foreground hover:bg-muted"
+                      : "bg-slate-100 text-slate-800 hover:bg-slate-200 dark:bg-white/10 dark:text-slate-100 dark:hover:bg-white/15"
                   )
                 }
               >
