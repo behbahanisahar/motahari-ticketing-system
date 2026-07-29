@@ -56,6 +56,7 @@ export default function Home() {
   const userActions = [
     { to: "/new", icon: Plus, title: "ثبت تیکت جدید" },
     { to: "/mine", icon: ListChecks, title: "تیکت‌های من" },
+    { to: "/phonebook", icon: Phone, title: "دفترچه تلفن داخلی" },
     { to: "/guide", icon: BookOpen, title: "راهنمای استفاده" },
   ];
 

@@ -61,6 +61,7 @@ export function Shell({ children }) {
     homeLink,
     { to: "/new", icon: Plus, label: "ثبت تیکت" },
     { to: "/mine", icon: ListChecks, label: "تیکت‌های من" },
+    { to: "/phonebook", icon: Phone, label: "داخلی‌ها" },
     { to: "/guide", icon: BookOpen, label: "راهنما" },
   ];
 

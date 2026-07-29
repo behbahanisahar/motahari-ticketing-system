@@ -137,7 +137,7 @@ export default function App() {
             <Route
               path="/phonebook"
               element={
-                <Protected roles={["admin"]}>
+                <Protected>
                   <Shell><PhoneBook /></Shell>
                 </Protected>
               }
