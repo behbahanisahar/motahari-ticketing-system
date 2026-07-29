@@ -61,19 +61,32 @@ function buildApp() {
         "SELECT now() AS db_now, current_setting('TIMEZONE') AS db_timezone"
       );
       const row = result.rows[0];
-      const dbNow =
-        row.db_now instanceof Date ? row.db_now.toISOString() : String(row.db_now);
+      const now = new Date();
+      const dbNow = row.db_now instanceof Date ? row.db_now : new Date(row.db_now);
+      // Iran is fixed UTC+03:30 (no DST)
+      const tehranOffsetMs = 3.5 * 60 * 60 * 1000;
+      const tehran = new Date(now.getTime() + tehranOffsetMs);
+      const pad = (n) => String(n).padStart(2, "0");
+      const tehranNow = `${tehran.getUTCFullYear()}-${pad(tehran.getUTCMonth() + 1)}-${pad(tehran.getUTCDate())} ${pad(tehran.getUTCHours())}:${pad(tehran.getUTCMinutes())}:${pad(tehran.getUTCSeconds())} +0330`;
+
       res.json({
         ok: true,
-        serverNow: new Date().toISOString(),
-        dbNow,
-        dbTimezone: row.db_timezone,
-        displayTimezone: "Asia/Tehran",
+        serverNowUtc: now.toISOString(),
+        dbNowUtc: Number.isNaN(dbNow.getTime()) ? String(row.db_now) : dbNow.toISOString(),
+        tehranNow,
+        dbSessionTimezone: row.db_timezone,
+        /** Minutes east of UTC for this Node process (Tehran must be -210). */
+        nodeTimezoneOffsetMinutes: now.getTimezoneOffset(),
+        expectedTehranOffsetMinutes: -210,
+        hint:
+          now.getTimezoneOffset() === -210
+            ? "Node timezone looks like Tehran."
+            : "Windows/OS timezone is NOT Tehran. Set timezone to (UTC+03:30) Tehran, then restart Node. Only changing the clock time is not enough.",
       });
     } catch (err) {
       res.status(500).json({
         ok: false,
-        serverNow: new Date().toISOString(),
+        serverNowUtc: new Date().toISOString(),
         error: err.message,
       });
     }

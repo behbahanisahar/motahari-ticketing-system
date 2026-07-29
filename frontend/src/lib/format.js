@@ -1,6 +1,23 @@
+import { toJalaali } from "jalaali-js";
+
 const PERSIAN_DIGITS = ["۰", "۱", "۲", "۳", "۴", "۵", "۶", "۷", "۸", "۹"];
 const PERSIAN_DIGIT_CHARS = "۰۱۲۳۴۵۶۷۸۹";
 const ARABIC_DIGIT_CHARS = "٠١٢٣٤٥٦٧٨٩";
+
+const PERSIAN_MONTHS = [
+  "فروردین",
+  "اردیبهشت",
+  "خرداد",
+  "تیر",
+  "مرداد",
+  "شهریور",
+  "مهر",
+  "آبان",
+  "آذر",
+  "دی",
+  "بهمن",
+  "اسفند",
+];
 
 /** Iran has no DST (fixed UTC+03:30). Avoid Intl Asia/Tehran — old ICU/Windows data is often wrong. */
 const TEHRAN_OFFSET_MS = 3.5 * 60 * 60 * 1000;
@@ -84,7 +101,7 @@ function pad2(n) {
 }
 
 /** Wall-clock parts in Asia/Tehran from a UTC instant. */
-function getTehranParts(date) {
+export function getTehranParts(date) {
   const shifted = new Date(date.getTime() + TEHRAN_OFFSET_MS);
   return {
     year: shifted.getUTCFullYear(),
@@ -96,27 +113,35 @@ function getTehranParts(date) {
   };
 }
 
-/** Persian labels for Gregorian day/month (time comes from fixed-offset parts). */
-function formatTehranDateLabel(parts, options = {}) {
-  const fakeUtc = new Date(Date.UTC(parts.year, parts.month, parts.day, 12, 0, 0));
-  return new Intl.DateTimeFormat("fa-IR-u-ca-gregory", {
-    timeZone: "UTC",
-    ...options,
-  }).format(fakeUtc);
+function toShamsi(parts) {
+  return toJalaali(parts.year, parts.month + 1, parts.day);
+}
+
+/** Shamsi label from Tehran calendar day. */
+function formatShamsiLabel(parts, options = {}) {
+  const { jy, jm, jd } = toShamsi(parts);
+  const withYear = options.year != null;
+  const withMonth = options.month != null;
+  const withDay = options.day != null;
+  const bits = [];
+  if (withDay) bits.push(String(jd));
+  if (withMonth) bits.push(PERSIAN_MONTHS[jm - 1]);
+  if (withYear) bits.push(String(jy));
+  return bits.join(" ");
 }
 
 export function formatDateFa(iso, options = { month: "short", day: "numeric" }) {
   const date = parseAppDate(iso);
   if (!date) return "";
   const parts = getTehranParts(date);
-  return toPersianDigits(formatTehranDateLabel(parts, options));
+  return toPersianDigits(formatShamsiLabel(parts, options));
 }
 
 export function formatDateTimeFa(iso) {
   const date = parseAppDate(iso);
   if (!date) return "";
   const parts = getTehranParts(date);
-  const dateLabel = formatTehranDateLabel(parts, {
+  const dateLabel = formatShamsiLabel(parts, {
     year: "numeric",
     month: "long",
     day: "numeric",
@@ -125,7 +150,7 @@ export function formatDateTimeFa(iso) {
   return toPersianDigits(`${dateLabel}، ${time}`);
 }
 
-/** Compact Tehran time for chat bubbles and notification rows. */
+/** Compact Tehran/Shamsi time for chat bubbles and notification rows. */
 export function formatMessageTimeFa(iso) {
   const date = parseAppDate(iso);
   if (!date) return "";
@@ -143,6 +168,6 @@ export function formatMessageTimeFa(iso) {
     return toPersianDigits(time);
   }
 
-  const dateLabel = formatTehranDateLabel(parts, { month: "short", day: "numeric" });
+  const dateLabel = formatShamsiLabel(parts, { month: "short", day: "numeric" });
   return toPersianDigits(`${dateLabel} ${time}`);
 }

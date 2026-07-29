@@ -515,7 +515,7 @@ export default function AdminReports() {
                   key: "date",
                   label: "تاریخ",
                   className: "fa-num text-slate-500 whitespace-nowrap",
-                  render: (t) => formatDateFa(t.created_at),
+                  render: (t) => formatDateFa(t.created_at, { year: "numeric", month: "long", day: "numeric" }),
                 },
               ]}
             />

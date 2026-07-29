@@ -1,5 +1,5 @@
 import { jalaaliMonthLength, toGregorian, toJalaali } from "jalaali-js";
-import { toPersianDigits } from "@/lib/format";
+import { getTehranParts, toPersianDigits } from "@/lib/format";
 
 export const PERSIAN_MONTHS = [
   "فروردین",
@@ -23,8 +23,8 @@ export function formatGregorian(gy, gm, gd) {
 }
 
 export function todayGregorian() {
-  const now = new Date();
-  return formatGregorian(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const parts = getTehranParts(new Date());
+  return formatGregorian(parts.year, parts.month + 1, parts.day);
 }
 
 export function yesterdayGregorian() {
@@ -42,8 +42,8 @@ export function parseGregorianDate(dateStr) {
 }
 
 export function currentJalaali() {
-  const now = new Date();
-  return toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
+  const parts = getTehranParts(new Date());
+  return toJalaali(parts.year, parts.month + 1, parts.day);
 }
 
 export function gregorianToJalaali(dateStr) {
