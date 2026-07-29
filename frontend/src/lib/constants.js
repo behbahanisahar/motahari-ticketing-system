@@ -56,6 +56,7 @@ export const WORK_CATEGORIES = [
   { value: "support", label: "پاسخ به سوال" },
   { value: "rayavaran", label: "سیستم رایاوران" },
   { value: "office_automation", label: "اتوماسیون اداری و چارگون" },
+  { value: "user_error", label: "خطای کاربر" },
   { value: "other", label: "سایر" },
 ];
 

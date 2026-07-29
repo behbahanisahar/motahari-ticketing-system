@@ -9,6 +9,7 @@ const CATEGORIES = [
   "support",
   "rayavaran",
   "office_automation",
+  "user_error",
   "other",
 ];
 
@@ -20,6 +21,7 @@ const CATEGORY_LABELS = {
   support: "پاسخ به سوال",
   rayavaran: "سیستم رایاوران",
   office_automation: "اتوماسیون اداری و چارگون",
+  user_error: "خطای کاربر",
   other: "سایر",
 };
 
