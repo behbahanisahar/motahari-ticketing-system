@@ -203,7 +203,7 @@ export default function Home() {
                     </div>
                     <p className="truncate font-semibold text-foreground">{t.subject}</p>
                     <p className="fa-num text-xs text-muted-foreground">
-                      {formatDateFa(t.created_at, { year: "numeric", month: "long", day: "numeric" })}
+                      {formatDateFa(t.created_at)}
                     </p>
                   </div>
                   <ArrowLeft className="h-4 w-4 shrink-0 text-muted-foreground" />
