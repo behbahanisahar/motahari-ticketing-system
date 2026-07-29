@@ -59,7 +59,11 @@ router.patch("/teams/:id", requireAuth, requireRole("admin"), async (req, res) =
     await client.query("UPDATE tickets SET team = $1 WHERE team = $2", [trimmed, oldName]);
     await client.query("COMMIT");
   } catch (err) {
-    await client.query("ROLLBACK");
+    try {
+      await client.query("ROLLBACK");
+    } catch (_) {
+      /* connection may already be closed */
+    }
     throw err;
   } finally {
     client.release();
