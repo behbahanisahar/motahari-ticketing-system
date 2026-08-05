@@ -85,6 +85,20 @@ export function NotificationsProvider({ children }) {
     [refresh]
   );
 
+  const markNotificationsSeen = useCallback(
+    async (ticketIds) => {
+      if (!ticketIds?.length) return;
+      const result = await api.markNotificationsSeen(ticketIds);
+      if (result?.summary) {
+        setSummary(result.summary);
+      } else {
+        await refresh();
+      }
+      return result;
+    },
+    [refresh]
+  );
+
   return (
     <NotificationsContext.Provider
       value={{
@@ -95,6 +109,7 @@ export function NotificationsProvider({ children }) {
         leaveTicket,
         onNewMessage,
         markTicketRead,
+        markNotificationsSeen,
       }}
     >
       {children}

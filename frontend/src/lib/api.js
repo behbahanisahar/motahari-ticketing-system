@@ -72,6 +72,11 @@ export const api = {
     request(`/tickets/${id}/comments`, { method: "POST", body: JSON.stringify({ body }) }),
 
   markTicketRead: (id) => request(`/tickets/${id}/read`, { method: "POST" }),
+  markNotificationsSeen: (ticketIds) =>
+    request("/notifications/mark-seen", {
+      method: "POST",
+      body: JSON.stringify({ ticketIds }),
+    }),
 
   notificationSummary: () => request("/notifications/summary"),
   notifications: (params = {}) => {

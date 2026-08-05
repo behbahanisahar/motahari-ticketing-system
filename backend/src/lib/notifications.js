@@ -29,6 +29,27 @@ async function markTicketRead(userId, ticketId) {
   );
 }
 
+async function markTicketsRead(userId, ticketIds) {
+  const ids = [
+    ...new Set(
+      (ticketIds || [])
+        .map((id) => Number(id))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ),
+  ];
+  if (ids.length === 0) return 0;
+
+  await db.query(
+    `INSERT INTO ticket_read_status (user_id, ticket_id, last_read_at)
+     SELECT $1, x, now()
+     FROM unnest($2::int[]) AS x
+     ON CONFLICT (user_id, ticket_id)
+     DO UPDATE SET last_read_at = now()`,
+    [userId, ids]
+  );
+  return ids.length;
+}
+
 async function getUnreadCountForTicket(userId, ticketId) {
   const result = await db.query(
     `SELECT COUNT(*)::int AS count
@@ -271,6 +292,7 @@ async function enrichComment(commentId) {
 module.exports = {
   getMessageRecipientIds,
   markTicketRead,
+  markTicketsRead,
   getUnreadCountForTicket,
   getNotificationList,
   getNotificationCounts,

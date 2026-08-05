@@ -12,7 +12,7 @@ import { cn } from "@/lib/utils";
 const PAGE_SIZE = 8;
 
 export function NotificationPanel() {
-  const { summary, markTicketRead } = useNotifications();
+  const { summary, markTicketRead, markNotificationsSeen } = useNotifications();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("all");
@@ -20,6 +20,7 @@ export function NotificationPanel() {
   const [list, setList] = useState(null);
   const [loading, setLoading] = useState(false);
   const panelRef = useRef(null);
+  const markedSeenRef = useRef(new Set());
 
   const unread = summary.unreadTotal;
 
@@ -46,10 +47,51 @@ export function NotificationPanel() {
   }, [open]);
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) {
+      markedSeenRef.current = new Set();
+      return;
+    }
     const timer = setTimeout(loadList, query ? 250 : 0);
     return () => clearTimeout(timer);
   }, [open, loadList, query, summary.unreadTotal, summary.totalTickets]);
+
+  // Mark unread items as read once they are visible in the open panel.
+  useEffect(() => {
+    if (!open || !list?.items?.length) return;
+
+    const toMark = list.items
+      .filter((item) => item.unreadCount > 0 && !markedSeenRef.current.has(item.ticketId))
+      .map((item) => item.ticketId);
+
+    if (toMark.length === 0) return;
+
+    toMark.forEach((id) => markedSeenRef.current.add(id));
+
+    let cancelled = false;
+    (async () => {
+      try {
+        await markNotificationsSeen(toMark);
+        if (cancelled) return;
+        setList((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            items: prev.items.map((item) =>
+              toMark.includes(item.ticketId)
+                ? { ...item, unreadCount: 0, isRead: true }
+                : item
+            ),
+          };
+        });
+      } catch {
+        toMark.forEach((id) => markedSeenRef.current.delete(id));
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, list, markNotificationsSeen]);
 
   const handleOpenTicket = async (ticketId) => {
     await markTicketRead(ticketId);
