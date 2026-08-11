@@ -1,4 +1,7 @@
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
+const multer = require("multer");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { asyncHandler } = require("../lib/asyncHandler");
@@ -10,9 +13,67 @@ const {
   enrichComment,
   toIsoUtc,
 } = require("../lib/notifications");
+const {
+  UPLOADS_DIR,
+  MAX_SCREENSHOT_BYTES,
+  ALLOWED_SCREENSHOT_MIME,
+  ensureUploadsDir,
+  screenshotAbsolutePath,
+} = require("../lib/uploads");
 const { emitNewMessage } = require("../socket");
 
 const router = express.Router();
+
+ensureUploadsDir();
+
+const screenshotUpload = multer({
+  storage: multer.diskStorage({
+    destination: (_req, _file, cb) => {
+      ensureUploadsDir();
+      cb(null, UPLOADS_DIR);
+    },
+    filename: (_req, file, cb) => {
+      const ext = path.extname(file.originalname || "").toLowerCase();
+      const safeExt = [".jpg", ".jpeg", ".png", ".webp", ".gif"].includes(ext) ? ext : ".jpg";
+      cb(null, `ticket-${Date.now()}-${Math.random().toString(36).slice(2, 10)}${safeExt}`);
+    },
+  }),
+  limits: { fileSize: MAX_SCREENSHOT_BYTES, files: 1 },
+  fileFilter: (_req, file, cb) => {
+    if (!ALLOWED_SCREENSHOT_MIME.has(file.mimetype)) {
+      return cb(new Error("فقط تصویر JPEG، PNG، WebP یا GIF مجاز است."));
+    }
+    cb(null, true);
+  },
+});
+
+function optionalScreenshot(req, res, next) {
+  screenshotUpload.single("screenshot")(req, res, (err) => {
+    if (!err) return next();
+    if (err.code === "LIMIT_FILE_SIZE") {
+      return res.status(400).json({ error: "حجم تصویر حداکثر ۵ مگابایت است." });
+    }
+    return res.status(400).json({ error: err.message || "آپلود تصویر ناموفق بود." });
+  });
+}
+
+function publicTicket(row) {
+  if (!row) return row;
+  const {
+    screenshot_filename,
+    screenshot_original_name,
+    screenshot_mime,
+    ...rest
+  } = row;
+  return {
+    ...rest,
+    created_at: toIsoUtc(row.created_at),
+    updated_at: toIsoUtc(row.updated_at),
+    closed_at: toIsoUtc(row.closed_at),
+    has_screenshot: Boolean(screenshot_filename),
+    screenshot_name: screenshot_original_name || null,
+  };
+}
 
 const STATUS_LABELS = {
   queued: "در صف",
@@ -145,36 +206,69 @@ function buildOrderClause(sort, order) {
   return `CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END DESC, t.created_at DESC`;
 }
 
-// Create a new ticket (any logged-in user)
-router.post("/", requireAuth, async (req, res) => {
-  const { subject, description, computerName, priority } = req.body || {};
+// Create a new ticket (any logged-in user); optional screenshot image
+router.post(
+  "/",
+  requireAuth,
+  optionalScreenshot,
+  asyncHandler(async (req, res) => {
+    const { subject, description, computerName, priority } = req.body || {};
 
-  if (
-    !subject ||
-    !subject.trim() ||
-    !description ||
-    !description.trim() ||
-    !computerName ||
-    !computerName.trim()
-  ) {
-    return res.status(400).json({ error: "عنوان، توضیحات و نام کامپیوتر الزامی است." });
-  }
+    if (
+      !subject ||
+      !String(subject).trim() ||
+      !description ||
+      !String(description).trim() ||
+      !computerName ||
+      !String(computerName).trim()
+    ) {
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_) {}
+      }
+      return res.status(400).json({ error: "عنوان، توضیحات و نام کامپیوتر الزامی است." });
+    }
 
-  const userRes = await db.query("SELECT department FROM users WHERE id = $1", [req.user.id]);
-  const department = userRes.rows[0]?.department;
-  if (!department) {
-    return res.status(400).json({ error: "واحد سازمانی کاربر مشخص نیست. با مدیر تماس بگیرید." });
-  }
+    const userRes = await db.query("SELECT department FROM users WHERE id = $1", [req.user.id]);
+    const department = userRes.rows[0]?.department;
+    if (!department) {
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_) {}
+      }
+      return res.status(400).json({ error: "واحد سازمانی کاربر مشخص نیست. با مدیر تماس بگیرید." });
+    }
 
-  const prio = PRIORITIES.includes(priority) ? priority : "medium";
+    const prio = PRIORITIES.includes(priority) ? priority : "medium";
+    const screenshotFilename = req.file?.filename || null;
+    const screenshotOriginal = req.file?.originalname || null;
+    const screenshotMime = req.file?.mimetype || null;
 
-  const result = await db.query(
-    `INSERT INTO tickets (requester_id, subject, description, team, computer_name, requester_priority, priority, status)
-     VALUES ($1,$2,$3,$4,$5,$6,'medium','queued') RETURNING *`,
-    [req.user.id, subject.trim(), description.trim(), department, computerName.trim(), prio]
-  );
-  res.status(201).json(result.rows[0]);
-});
+    const result = await db.query(
+      `INSERT INTO tickets (
+         requester_id, subject, description, team, computer_name,
+         requester_priority, priority, status,
+         screenshot_filename, screenshot_original_name, screenshot_mime
+       )
+       VALUES ($1,$2,$3,$4,$5,$6,'medium','queued',$7,$8,$9)
+       RETURNING *`,
+      [
+        req.user.id,
+        String(subject).trim(),
+        String(description).trim(),
+        department,
+        String(computerName).trim(),
+        prio,
+        screenshotFilename,
+        screenshotOriginal,
+        screenshotMime,
+      ]
+    );
+    res.status(201).json(publicTicket(result.rows[0]));
+  })
+);
 
 // List the current user's own tickets
 router.get("/mine", requireAuth, async (req, res) => {
@@ -283,9 +377,7 @@ router.get("/:id", requireAuth, async (req, res) => {
   );
   const unreadCount = await getUnreadCountForTicket(req.user.id, ticket.id);
   res.json({
-    ...ticket,
-    created_at: toIsoUtc(ticket.created_at),
-    updated_at: toIsoUtc(ticket.updated_at),
+    ...publicTicket(ticket),
     comments: comments.rows.map((c) => ({
       ...c,
       created_at: toIsoUtc(c.created_at),
@@ -293,6 +385,36 @@ router.get("/:id", requireAuth, async (req, res) => {
     unreadCount,
   });
 });
+
+// Serve ticket screenshot (requester or admin)
+router.get(
+  "/:id/screenshot",
+  requireAuth,
+  asyncHandler(async (req, res) => {
+    const result = await db.query("SELECT * FROM tickets WHERE id = $1", [req.params.id]);
+    if (result.rows.length === 0) return res.status(404).json({ error: "تیکت یافت نشد." });
+    const ticket = result.rows[0];
+    const isOwner = ticket.requester_id === req.user.id;
+    const isAdmin = req.user.role === "admin";
+    if (!isOwner && !isAdmin) return res.status(403).json({ error: "دسترسی غیرمجاز." });
+    if (!ticket.screenshot_filename) {
+      return res.status(404).json({ error: "تصویری برای این تیکت ثبت نشده است." });
+    }
+
+    const filePath = screenshotAbsolutePath(ticket.screenshot_filename);
+    if (!filePath || !fs.existsSync(filePath)) {
+      return res.status(404).json({ error: "فایل تصویر یافت نشد." });
+    }
+
+    const downloadName = ticket.screenshot_original_name || ticket.screenshot_filename;
+    if (req.query.download === "1") {
+      return res.download(filePath, downloadName);
+    }
+    res.type(ticket.screenshot_mime || "image/jpeg");
+    res.setHeader("Cache-Control", "private, max-age=3600");
+    return res.sendFile(filePath);
+  })
+);
 
 // Update ticket fields (admin only: status, IT priority, assignee, category)
 router.patch(
@@ -320,6 +442,9 @@ router.patch(
     if (!STATUSES.includes(status)) return res.status(400).json({ error: "وضعیت نامعتبر است." });
     params.push(status);
     fields.push(`status = $${params.length}`);
+    if (status === "done" || status === "rejected") {
+      fields.push("closed_at = COALESCE(closed_at, now())");
+    }
   }
   if (priority !== undefined) {
     if (!PRIORITIES.includes(priority)) return res.status(400).json({ error: "اولویت نامعتبر است." });
@@ -378,7 +503,7 @@ router.patch(
     console.error("Failed to notify ticket requester:", err);
   }
 
-  res.json(updated);
+  res.json(publicTicket(updated));
   })
 );
 

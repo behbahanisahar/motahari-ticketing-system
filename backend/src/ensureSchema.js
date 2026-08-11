@@ -27,26 +27,31 @@ async function indexExists(indexName) {
   return result.rows.length > 0;
 }
 
-async function ensureSchema() {
-  // Never block server startup on migration privileges.
+async function tryAddColumn(tableName, columnName, sqlType, backfillSql) {
   try {
-    const hasCategory = await columnExists("tickets", "category");
-    if (!hasCategory) {
-      try {
-        await db.query(`ALTER TABLE tickets ADD COLUMN category VARCHAR(50)`);
-        console.log("Added tickets.category column");
-      } catch (err) {
-        console.warn(
-          "Could not add tickets.category automatically:",
-          err.message,
-          "\nIf the column is missing, run as table owner:\n" +
-            "  ALTER TABLE tickets ADD COLUMN IF NOT EXISTS category VARCHAR(50);"
-        );
+    const exists = await columnExists(tableName, columnName);
+    if (exists) return;
+    try {
+      await db.query(`ALTER TABLE ${tableName} ADD COLUMN ${columnName} ${sqlType}`);
+      console.log(`Added ${tableName}.${columnName} column`);
+      if (backfillSql) {
+        await db.query(backfillSql);
       }
+    } catch (err) {
+      console.warn(
+        `Could not add ${tableName}.${columnName} automatically:`,
+        err.message,
+        `\nIf missing, run as table owner:\n  ALTER TABLE ${tableName} ADD COLUMN IF NOT EXISTS ${columnName} ${sqlType};`
+      );
     }
   } catch (err) {
-    console.warn("Schema check for tickets.category failed:", err.message);
+    console.warn(`Schema check for ${tableName}.${columnName} failed:`, err.message);
   }
+}
+
+async function ensureSchema() {
+  // Never block server startup on migration privileges.
+  await tryAddColumn("tickets", "category", "VARCHAR(50)");
 
   try {
     const hasIndex = await indexExists("idx_tickets_category");
@@ -59,6 +64,30 @@ async function ensureSchema() {
     }
   } catch (err) {
     console.warn("Schema check for idx_tickets_category failed:", err.message);
+  }
+
+  await tryAddColumn(
+    "tickets",
+    "closed_at",
+    "TIMESTAMPTZ",
+    `UPDATE tickets SET closed_at = updated_at
+     WHERE status IN ('done', 'rejected') AND closed_at IS NULL`
+  );
+  await tryAddColumn("tickets", "screenshot_filename", "VARCHAR(255)");
+  await tryAddColumn("tickets", "screenshot_original_name", "VARCHAR(255)");
+  await tryAddColumn("tickets", "screenshot_mime", "VARCHAR(100)");
+
+  try {
+    const hasClosedIndex = await indexExists("idx_tickets_closed_at");
+    if (!hasClosedIndex) {
+      try {
+        await db.query(`CREATE INDEX IF NOT EXISTS idx_tickets_closed_at ON tickets(closed_at)`);
+      } catch (err) {
+        console.warn("Could not create idx_tickets_closed_at:", err.message);
+      }
+    }
+  } catch (err) {
+    console.warn("Schema check for idx_tickets_closed_at failed:", err.message);
   }
 }
 

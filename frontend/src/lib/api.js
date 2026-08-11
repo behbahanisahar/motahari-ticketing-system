@@ -1,10 +1,16 @@
 const BASE = import.meta.env.VITE_API_URL || "/api";
 
 async function request(path, options = {}) {
+  const headers = { ...(options.headers || {}) };
+  const isFormData = typeof FormData !== "undefined" && options.body instanceof FormData;
+  if (!isFormData && !headers["Content-Type"]) {
+    headers["Content-Type"] = "application/json";
+  }
+
   const res = await fetch(`${BASE}${path}`, {
     credentials: "include",
-    headers: { "Content-Type": "application/json" },
     ...options,
+    headers,
   });
 
   let data = null;
@@ -54,7 +60,14 @@ export const api = {
     return request(`/stats${suffix}`);
   },
 
-  createTicket: (payload) => request("/tickets", { method: "POST", body: JSON.stringify(payload) }),
+  createTicket: (payload) => {
+    if (typeof FormData !== "undefined" && payload instanceof FormData) {
+      return request("/tickets", { method: "POST", body: payload });
+    }
+    return request("/tickets", { method: "POST", body: JSON.stringify(payload) });
+  },
+  ticketScreenshotUrl: (id, { download = false } = {}) =>
+    `${BASE}/tickets/${id}/screenshot${download ? "?download=1" : ""}`,
   myTickets: (params = {}) => {
     const qs = new URLSearchParams(Object.entries(params).filter(([, v]) => v !== "" && v != null));
     const suffix = qs.toString() ? `?${qs.toString()}` : "";

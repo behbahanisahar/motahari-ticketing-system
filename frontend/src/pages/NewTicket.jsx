@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { Building2, CheckCircle2, Send, Monitor } from "lucide-react";
+import { Building2, CheckCircle2, Send, Monitor, ImagePlus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,22 +12,51 @@ import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 
+const MAX_SCREENSHOT_BYTES = 5 * 1024 * 1024;
+const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif"];
+
 export default function NewTicket() {
   const { user } = useAuth();
   const [subject, setSubject] = useState("");
   const [description, setDescription] = useState("");
   const [priority, setPriority] = useState("medium");
   const [computerName, setComputerName] = useState("");
+  const [screenshot, setScreenshot] = useState(null);
+  const [previewUrl, setPreviewUrl] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [created, setCreated] = useState(null);
   const navigate = useNavigate();
+
+  const clearScreenshot = () => {
+    setScreenshot(null);
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setPreviewUrl("");
+  };
 
   const resetForm = () => {
     setSubject("");
     setDescription("");
     setPriority("medium");
     setComputerName("");
+    clearScreenshot();
     setCreated(null);
+  };
+
+  const handleScreenshotChange = (e) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file) return;
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      toast.error("فقط تصویر JPEG، PNG، WebP یا GIF مجاز است.");
+      return;
+    }
+    if (file.size > MAX_SCREENSHOT_BYTES) {
+      toast.error("حجم تصویر حداکثر ۵ مگابایت است.");
+      return;
+    }
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
+    setScreenshot(file);
+    setPreviewUrl(URL.createObjectURL(file));
   };
 
   const handleSubmit = async (e) => {
@@ -42,13 +71,16 @@ export default function NewTicket() {
     }
     setSubmitting(true);
     try {
-      const ticket = await api.createTicket({
-        subject,
-        description,
-        priority,
-        computerName: computerName.trim(),
-      });
+      const form = new FormData();
+      form.append("subject", subject.trim());
+      form.append("description", description.trim());
+      form.append("priority", priority);
+      form.append("computerName", computerName.trim());
+      if (screenshot) form.append("screenshot", screenshot);
+
+      const ticket = await api.createTicket(form);
       setCreated(ticket);
+      clearScreenshot();
     } catch (err) {
       toast.error(err.message);
     } finally {
@@ -104,30 +136,30 @@ export default function NewTicket() {
             )}
 
             <div className="grid gap-5 lg:grid-cols-2">
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="subject">موضوع مشکل</Label>
-              <Input
-                id="subject"
-                placeholder="مثلاً: چاپگر کار نمی‌کند"
-                value={subject}
-                onChange={(e) => setSubject(e.target.value)}
-                required
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="subject">موضوع مشکل</Label>
+                <Input
+                  id="subject"
+                  placeholder="مثلاً: چاپگر کار نمی‌کند"
+                  value={subject}
+                  onChange={(e) => setSubject(e.target.value)}
+                  required
+                />
+              </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="computerName" className="flex items-center gap-1.5">
-                <Monitor className="h-4 w-4" />
-                نام کامپیوتر
-              </Label>
-              <Input
-                id="computerName"
-                placeholder="مثلاً: PC-SARA-01 (از تنظیمات ویندوز)"
-                value={computerName}
-                onChange={(e) => setComputerName(e.target.value)}
-                required
-              />
-            </div>
+              <div className="flex flex-col gap-1.5">
+                <Label htmlFor="computerName" className="flex items-center gap-1.5">
+                  <Monitor className="h-4 w-4" />
+                  نام کامپیوتر
+                </Label>
+                <Input
+                  id="computerName"
+                  placeholder="مثلاً: PC-SARA-01 (از تنظیمات ویندوز)"
+                  value={computerName}
+                  onChange={(e) => setComputerName(e.target.value)}
+                  required
+                />
+              </div>
             </div>
 
             <div className="flex flex-col gap-1.5">
@@ -140,6 +172,38 @@ export default function NewTicket() {
                 required
                 className="min-h-[140px]"
               />
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label htmlFor="screenshot" className="flex items-center gap-1.5">
+                <ImagePlus className="h-4 w-4" />
+                تصویر ضمیمه (اختیاری)
+              </Label>
+              <p className="text-xs text-muted-foreground">یک تصویر، حداکثر ۵ مگابایت — JPEG، PNG، WebP یا GIF</p>
+              {!screenshot ? (
+                <Input
+                  id="screenshot"
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp,image/gif"
+                  onChange={handleScreenshotChange}
+                  className="cursor-pointer file:me-3 file:rounded-lg file:border-0 file:bg-primary/10 file:px-3 file:py-1.5 file:text-sm file:font-semibold file:text-primary"
+                />
+              ) : (
+                <div className="relative overflow-hidden rounded-2xl border border-border/70 bg-muted/30">
+                  <img src={previewUrl} alt="پیش‌نمایش تصویر" className="max-h-56 w-full object-contain" />
+                  <button
+                    type="button"
+                    onClick={clearScreenshot}
+                    className="absolute start-3 top-3 inline-flex items-center gap-1 rounded-full bg-slate-900/80 px-2.5 py-1 text-xs font-semibold text-white"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                    حذف
+                  </button>
+                  <p className="truncate border-t border-border/60 px-3 py-2 text-xs text-muted-foreground">
+                    {screenshot.name}
+                  </p>
+                </div>
+              )}
             </div>
 
             <div className="flex flex-col gap-2">

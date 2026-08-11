@@ -9,6 +9,7 @@ const router = express.Router();
 const TICKETS_DETAIL_LIMIT = 100;
 
 let categoryColumnReady = null;
+let closedAtColumnReady = null;
 
 async function ticketsHaveCategoryColumn() {
   if (categoryColumnReady != null) return categoryColumnReady;
@@ -26,6 +27,35 @@ async function ticketsHaveCategoryColumn() {
     categoryColumnReady = false;
   }
   return categoryColumnReady;
+}
+
+async function ticketsHaveClosedAtColumn() {
+  if (closedAtColumnReady != null) return closedAtColumnReady;
+  try {
+    const result = await db.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'tickets'
+         AND column_name = 'closed_at'
+       LIMIT 1`
+    );
+    closedAtColumnReady = result.rows.length > 0;
+  } catch (_) {
+    closedAtColumnReady = false;
+  }
+  return closedAtColumnReady;
+}
+
+function resolutionHours(row) {
+  const closed =
+    row.status === "done" || row.status === "rejected"
+      ? row.closed_at || row.updated_at
+      : null;
+  if (!closed || !row.created_at) return null;
+  const hours = (new Date(closed) - new Date(row.created_at)) / 3600000;
+  if (!Number.isFinite(hours) || hours < 0) return null;
+  return Math.round(hours * 10) / 10;
 }
 
 function bump(map, key) {
@@ -71,13 +101,16 @@ router.get(
 
     const ticketFilter = `t.created_at >= $1::timestamptz AND t.created_at <= $2::timestamptz${extraClauses}`;
     const hasCategory = await ticketsHaveCategoryColumn();
+    const hasClosedAt = await ticketsHaveClosedAtColumn();
     const categorySelect = hasCategory ? "t.category" : "NULL::varchar AS category";
+    const closedAtSelect = hasClosedAt ? "t.closed_at" : "NULL::timestamptz AS closed_at";
 
     const [ticketsRes, byAdminRes] = await Promise.all([
       db.query(
         `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority,
                 ${categorySelect},
-                t.computer_name, t.created_at, t.updated_at, t.assigned_to, t.requester_id,
+                t.computer_name, t.created_at, t.updated_at, ${closedAtSelect},
+                t.assigned_to, t.requester_id,
                 u.display_name AS requester_name,
                 a.display_name AS assignee_name
          FROM tickets t
@@ -112,6 +145,7 @@ router.get(
     let unassigned = 0;
     let resolutionSumHours = 0;
     let resolutionCount = 0;
+    let closedCount = 0;
 
     for (const row of rows) {
       bump(byStatusMap, row.status);
@@ -120,12 +154,12 @@ router.get(
       bump(byDepartmentMap, row.team);
       if (row.requester_id != null) requesterIds.add(row.requester_id);
       if (row.assigned_to == null) unassigned += 1;
-      if (row.status === "done" && row.updated_at && row.created_at) {
-        const hours = (new Date(row.updated_at) - new Date(row.created_at)) / 3600000;
-        if (Number.isFinite(hours) && hours >= 0) {
-          resolutionSumHours += hours;
-          resolutionCount += 1;
-        }
+      const hours = resolutionHours(row);
+      row.resolutionHours = hours;
+      if (hours != null) {
+        resolutionSumHours += hours;
+        resolutionCount += 1;
+        closedCount += 1;
       }
     }
 
@@ -159,6 +193,7 @@ router.get(
       summary: {
         unassigned,
         uniqueRequesters: requesterIds.size,
+        closedCount,
         avgResolutionHours:
           resolutionCount > 0 ? Math.round((resolutionSumHours / resolutionCount) * 10) / 10 : null,
       },

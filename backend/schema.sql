@@ -34,6 +34,10 @@ CREATE TABLE IF NOT EXISTS tickets (
   requester_status VARCHAR(20) NOT NULL DEFAULT 'queued',
   status         VARCHAR(20) NOT NULL DEFAULT 'queued',
   assigned_to    INTEGER REFERENCES users(id),
+  closed_at      TIMESTAMPTZ,
+  screenshot_filename VARCHAR(255),
+  screenshot_original_name VARCHAR(255),
+  screenshot_mime VARCHAR(100),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
@@ -46,6 +50,7 @@ CREATE INDEX IF NOT EXISTS idx_tickets_category ON tickets(category);
 CREATE INDEX IF NOT EXISTS idx_tickets_requester ON tickets(requester_id);
 CREATE INDEX IF NOT EXISTS idx_tickets_assigned ON tickets(assigned_to);
 CREATE INDEX IF NOT EXISTS idx_tickets_created ON tickets(created_at);
+CREATE INDEX IF NOT EXISTS idx_tickets_closed_at ON tickets(closed_at);
 
 CREATE TABLE IF NOT EXISTS ticket_comments (
   id          SERIAL PRIMARY KEY,

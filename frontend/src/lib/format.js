@@ -62,6 +62,26 @@ export function formatMinutesAsHours(minutes) {
   return `${formatNumber(hours)} ساعت`;
 }
 
+/** Format a duration in hours for admin reports (Persian). */
+export function formatDurationFa(hours) {
+  if (hours == null || hours === "" || !Number.isFinite(Number(hours)) || Number(hours) < 0) {
+    return "—";
+  }
+  const h = Number(hours);
+  if (h < 1) {
+    const mins = Math.max(1, Math.round(h * 60));
+    return `${formatNumber(mins)} دقیقه`;
+  }
+  if (h < 48) {
+    const rounded = Math.round(h * 10) / 10;
+    return `${formatNumber(rounded)} ساعت`;
+  }
+  const days = Math.floor(h / 24);
+  const remHours = Math.round(h % 24);
+  if (remHours === 0) return `${formatNumber(days)} روز`;
+  return `${formatNumber(days)} روز و ${formatNumber(remHours)} ساعت`;
+}
+
 /** Parse API timestamps consistently (values are UTC instants). */
 export function parseAppDate(value) {
   if (!value && value !== 0) return null;

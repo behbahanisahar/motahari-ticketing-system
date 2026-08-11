@@ -9,7 +9,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
 import { STATUSES, ticketItPriority, ticketStatus, ticketCategoryMeta } from "@/lib/constants";
 import { currentJalaali, PERSIAN_MONTHS } from "@/lib/shamsi";
-import { formatDateFa, formatNumber, toPersianDigits } from "@/lib/format";
+import { formatDateFa, formatDurationFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -103,11 +103,15 @@ function ReportsOverview({ stats }) {
             warn: stats.summary.unassigned > 0,
           },
           {
-            label: "میانگین انجام",
+            label: "میانگین زمان انجام",
             value:
               stats.summary.avgResolutionHours != null
-                ? `${formatNumber(stats.summary.avgResolutionHours)} س`
+                ? formatDurationFa(stats.summary.avgResolutionHours)
                 : "—",
+            hint:
+              stats.summary.closedCount > 0
+                ? `بر اساس ${formatNumber(stats.summary.closedCount)} تیکت بسته‌شده`
+                : "هنوز تیکت بسته‌شده‌ای در این بازه نیست",
           },
         ].map((item) => (
           <div key={item.label} className="panel-on-canvas rounded-2xl px-4 py-3">
@@ -120,6 +124,7 @@ function ReportsOverview({ stats }) {
             >
               {item.value}
             </p>
+            {item.hint && <p className="panel-on-canvas-muted fa-num mt-1 text-[11px] leading-5">{item.hint}</p>}
           </div>
         ))}
       </div>
@@ -513,9 +518,15 @@ export default function AdminReports() {
                 },
                 {
                   key: "date",
-                  label: "تاریخ",
+                  label: "تاریخ ثبت",
                   className: "fa-num text-slate-500 whitespace-nowrap",
                   render: (t) => formatDateFa(t.created_at, { year: "numeric", month: "long", day: "numeric" }),
+                },
+                {
+                  key: "resolution",
+                  label: "زمان انجام",
+                  className: "fa-num whitespace-nowrap font-semibold text-slate-700",
+                  render: (t) => formatDurationFa(t.resolutionHours),
                 },
               ]}
             />

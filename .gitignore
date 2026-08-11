@@ -10,3 +10,4 @@ frontend/.env
 .neon
 .DS_Store
 *.local
+backend/uploads/

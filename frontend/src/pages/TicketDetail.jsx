@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { Monitor, Building2, User, MessageCircle } from "lucide-react";
+import { Monitor, Building2, User, MessageCircle, Download, Expand, X } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/PageHeader";
 import { TicketChat } from "@/components/TicketChat";
 import { PriorityPicker } from "@/components/PriorityPicker";
+import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
 import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
@@ -18,6 +19,7 @@ export default function TicketDetail() {
   const { user } = useAuth();
   const [ticket, setTicket] = useState(null);
   const [admins, setAdmins] = useState([]);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
 
   const isAdmin = user?.role === "admin";
 
@@ -83,6 +85,41 @@ export default function TicketDetail() {
             <p className="mb-2 text-xs font-semibold text-slate-500">شرح درخواست</p>
             <p className="whitespace-pre-wrap text-[15px] leading-8 text-slate-800">{ticket.description}</p>
           </div>
+
+          {ticket.has_screenshot && (
+            <div className="border-t border-slate-100 pt-4">
+              <p className="mb-3 text-xs font-semibold text-slate-500">تصویر ضمیمه</p>
+              <div className="overflow-hidden rounded-2xl border border-slate-200 bg-slate-50">
+                <button
+                  type="button"
+                  onClick={() => setLightboxOpen(true)}
+                  className="block w-full text-start"
+                >
+                  <img
+                    src={api.ticketScreenshotUrl(ticket.id)}
+                    alt={ticket.screenshot_name || "تصویر تیکت"}
+                    className="max-h-64 w-full object-contain bg-white"
+                  />
+                </button>
+                <div className="flex flex-wrap items-center justify-between gap-2 border-t border-slate-200 bg-white px-3 py-2.5">
+                  <p className="truncate text-xs text-slate-500">{ticket.screenshot_name || "screenshot"}</p>
+                  <div className="flex gap-2">
+                    <Button type="button" variant="outline" size="sm" onClick={() => setLightboxOpen(true)}>
+                      <Expand className="h-4 w-4" />
+                      بزرگ‌نمایی
+                    </Button>
+                    <a
+                      href={api.ticketScreenshotUrl(ticket.id, { download: true })}
+                      className="inline-flex h-9 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-semibold text-slate-900 shadow-sm hover:border-primary/40"
+                    >
+                      <Download className="h-4 w-4" />
+                      دانلود
+                    </a>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 border-t border-slate-100 pt-4 text-sm text-slate-600">
             <span className="inline-flex items-center gap-1.5">
@@ -210,6 +247,31 @@ export default function TicketDetail() {
           <TicketChat ticketId={Number(id)} initialComments={ticket.comments} />
         </div>
       </section>
+
+      {lightboxOpen && ticket.has_screenshot && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-slate-950/80 p-4 backdrop-blur-sm"
+          onClick={() => setLightboxOpen(false)}
+          role="dialog"
+          aria-modal="true"
+          aria-label="نمایش بزرگ تصویر"
+        >
+          <button
+            type="button"
+            className="absolute end-4 top-4 rounded-full bg-white/15 p-2 text-white hover:bg-white/25"
+            onClick={() => setLightboxOpen(false)}
+            aria-label="بستن"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <img
+            src={api.ticketScreenshotUrl(ticket.id)}
+            alt={ticket.screenshot_name || "تصویر تیکت"}
+            className="max-h-[90vh] max-w-full rounded-xl object-contain shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+        </div>
+      )}
     </div>
   );
 }
