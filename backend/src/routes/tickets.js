@@ -183,12 +183,18 @@ function buildFilterClauses(query) {
 
 function buildOrderClause(sort, order) {
   const direction = order === "asc" ? "ASC" : "DESC";
+  // High/urgent stay pinned to the top only while the ticket is still open.
+  const openHighFirst = `CASE
+      WHEN t.status IN ('queued', 'in_progress', 'open')
+       AND t.priority IN ('urgent', 'high') THEN 0
+      ELSE 1
+    END ASC`;
 
   if (sort === "created_at") {
-    return `t.created_at ${direction}`;
+    return `${openHighFirst}, t.created_at ${direction}`;
   }
   if (sort === "status") {
-    return `CASE t.status
+    return `${openHighFirst}, CASE t.status
       WHEN 'queued' THEN 0
       WHEN 'in_progress' THEN 1
       WHEN 'done' THEN 2
@@ -199,11 +205,27 @@ function buildOrderClause(sort, order) {
       ELSE 4
     END ${direction}, t.created_at DESC`;
   }
-  // default: priority (urgent first when asc)
-  if (direction === "ASC") {
-    return `CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END ASC, t.created_at DESC`;
-  }
-  return `CASE t.priority WHEN 'urgent' THEN 0 WHEN 'high' THEN 1 WHEN 'medium' THEN 2 ELSE 3 END DESC, t.created_at DESC`;
+
+  // Default priority sort:
+  // 1) open + urgent/high
+  // 2) other open tickets (by priority)
+  // 3) closed tickets by date only (priority no longer keeps them on top)
+  return `CASE
+      WHEN t.status IN ('queued', 'in_progress', 'open')
+       AND t.priority IN ('urgent', 'high') THEN 0
+      WHEN t.status IN ('queued', 'in_progress', 'open') THEN 1
+      ELSE 2
+    END ASC,
+    CASE
+      WHEN t.status IN ('queued', 'in_progress', 'open') THEN
+        CASE t.priority
+          WHEN 'urgent' THEN 0
+          WHEN 'high' THEN 1
+          WHEN 'medium' THEN 2
+          ELSE 3
+        END
+    END ASC NULLS LAST,
+    t.created_at DESC`;
 }
 
 // Create a new ticket (any logged-in user); optional screenshot image

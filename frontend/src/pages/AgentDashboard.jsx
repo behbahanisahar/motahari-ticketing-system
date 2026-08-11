@@ -13,7 +13,7 @@ import { api } from "@/lib/api";
 import { toast } from "sonner";
 
 const SORT_OPTIONS = [
-  { value: "priority:asc", label: "اولویت (فوری‌ترین اول)" },
+  { value: "priority:asc", label: "اولویت (فوری/بالا فقط وقتی باز است)" },
   { value: "created_at:desc", label: "جدیدترین" },
   { value: "created_at:asc", label: "قدیمی‌ترین" },
   { value: "status:asc", label: "وضعیت پیگیری" },
