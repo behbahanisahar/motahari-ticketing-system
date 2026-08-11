@@ -246,26 +246,43 @@ router.post(
     const screenshotOriginal = req.file?.originalname || null;
     const screenshotMime = req.file?.mimetype || null;
 
-    const result = await db.query(
-      `INSERT INTO tickets (
-         requester_id, subject, description, team, computer_name,
-         requester_priority, priority, status,
-         screenshot_filename, screenshot_original_name, screenshot_mime
-       )
-       VALUES ($1,$2,$3,$4,$5,$6,'medium','queued',$7,$8,$9)
-       RETURNING *`,
-      [
-        req.user.id,
-        String(subject).trim(),
-        String(description).trim(),
-        department,
-        String(computerName).trim(),
-        prio,
-        screenshotFilename,
-        screenshotOriginal,
-        screenshotMime,
-      ]
-    );
+    let result;
+    try {
+      result = await db.query(
+        `INSERT INTO tickets (
+           requester_id, subject, description, team, computer_name,
+           requester_priority, priority, status,
+           screenshot_filename, screenshot_original_name, screenshot_mime
+         )
+         VALUES ($1,$2,$3,$4,$5,$6,'medium','queued',$7,$8,$9)
+         RETURNING *`,
+        [
+          req.user.id,
+          String(subject).trim(),
+          String(description).trim(),
+          department,
+          String(computerName).trim(),
+          prio,
+          screenshotFilename,
+          screenshotOriginal,
+          screenshotMime,
+        ]
+      );
+    } catch (err) {
+      if (req.file?.path) {
+        try {
+          fs.unlinkSync(req.file.path);
+        } catch (_) {}
+      }
+      if (err && /screenshot_|closed_at|column/i.test(String(err.message || ""))) {
+        console.error("Ticket create failed (schema):", err.message);
+        return res.status(500).json({
+          error:
+            "ستون تصویر در دیتابیس آماده نیست. سرور را یک‌بار ری‌استارت کنید یا این SQL را اجرا کنید: ALTER TABLE tickets ADD COLUMN IF NOT EXISTS screenshot_filename VARCHAR(255); ALTER TABLE tickets ADD COLUMN IF NOT EXISTS screenshot_original_name VARCHAR(255); ALTER TABLE tickets ADD COLUMN IF NOT EXISTS screenshot_mime VARCHAR(100);",
+        });
+      }
+      throw err;
+    }
     res.status(201).json(publicTicket(result.rows[0]));
   })
 );
