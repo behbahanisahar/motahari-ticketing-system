@@ -4,8 +4,8 @@ const { requireAuth, requireRole } = require("../middleware/auth");
 
 const router = express.Router();
 
-const { CATEGORIES } = require("../lib/constants");
-const VALID_CATEGORIES = new Set(CATEGORIES);
+const { ACTIVE_CATEGORIES, isAllowedTicketCategory } = require("../lib/constants");
+const ACTIVE_CATEGORY_SET = new Set(ACTIVE_CATEGORIES);
 
 const VALID_STATUSES = new Set(["queued", "in_progress", "done", "rejected"]);
 
@@ -203,8 +203,8 @@ router.post("/", async (req, res) => {
     return res.status(400).json({ error: "عنوان کار الزامی است." });
   }
 
-  const cat = category || "other";
-  if (!VALID_CATEGORIES.has(cat)) {
+  const cat = category || "hardware";
+  if (!ACTIVE_CATEGORY_SET.has(cat)) {
     return res.status(400).json({ error: "دسته‌بندی نامعتبر است." });
   }
 
@@ -315,7 +315,7 @@ router.patch("/:id", async (req, res) => {
     params.push(description?.trim() || null);
   }
   if (category !== undefined) {
-    if (!VALID_CATEGORIES.has(category)) {
+    if (!isAllowedTicketCategory(category, row.category)) {
       return res.status(400).json({ error: "دسته‌بندی نامعتبر است." });
     }
     fields.push(`category = $${idx++}`);

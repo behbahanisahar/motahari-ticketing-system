@@ -5,7 +5,7 @@ const multer = require("multer");
 const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { asyncHandler } = require("../lib/asyncHandler");
-const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
+const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS, isAllowedTicketCategory } = require("../lib/constants");
 const {
   getMessageRecipientIds,
   markTicketRead,
@@ -491,10 +491,11 @@ router.patch(
     fields.push(`priority = $${params.length}`);
   }
   if (category !== undefined) {
-    if (category !== null && category !== "" && !(CATEGORIES || []).includes(category)) {
+    const nextCategory = category || null;
+    if (nextCategory && !isAllowedTicketCategory(nextCategory, ticket.category)) {
       return res.status(400).json({ error: "دسته‌بندی نامعتبر است." });
     }
-    params.push(category || null);
+    params.push(nextCategory);
     fields.push(`category = $${params.length}`);
   }
   if (assignedTo !== undefined) {

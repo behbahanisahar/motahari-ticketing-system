@@ -6,7 +6,7 @@ import { ResponsiveTable } from "@/components/ResponsiveTable";
 import { useNotifications } from "@/hooks/useNotifications";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
+import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, ACTIVE_TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
 import { PRIORITIES } from "@/lib/constants";
 import { formatDateFa, formatNumber, toPersianDigits } from "@/lib/format";
 import { api } from "@/lib/api";
@@ -120,7 +120,7 @@ export default function AgentDashboard() {
             <SelectContent>
               <SelectItem value="all">همه دسته‌ها</SelectItem>
               <SelectItem value="none">تعیین نشده</SelectItem>
-              {TICKET_CATEGORIES.map((c) => (
+              {ACTIVE_TICKET_CATEGORIES.map((c) => (
                 <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
               ))}
             </SelectContent>

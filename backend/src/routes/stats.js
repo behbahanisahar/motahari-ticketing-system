@@ -3,7 +3,7 @@ const db = require("../db");
 const { requireAuth, requireRole } = require("../middleware/auth");
 const { asyncHandler } = require("../lib/asyncHandler");
 const { PERSIAN_MONTHS, resolvePeriod, currentShamsi } = require("../lib/shamsi");
-const { PRIORITIES, STATUSES, CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
+const { PRIORITIES, STATUSES, CATEGORIES, ACTIVE_CATEGORIES, CATEGORY_LABELS } = require("../lib/constants");
 
 const router = express.Router();
 const TICKETS_DETAIL_LIMIT = 100;
@@ -172,16 +172,16 @@ router.get(
       count: byPriorityMap[p] || 0,
     }));
     const byCategory = [
-      ...CATEGORIES.map((value) => ({
-        category: value,
-        label: CATEGORY_LABELS[value] || value,
-        count: byCategoryMap[value] || 0,
-      })),
       {
         category: "none",
         label: "تعیین نشده",
         count: byCategoryMap.none || 0,
       },
+      ...CATEGORIES.map((value) => ({
+        category: value,
+        label: CATEGORY_LABELS[value] || value,
+        count: byCategoryMap[value] || 0,
+      })).filter((row) => row.count > 0 || ACTIVE_CATEGORIES.includes(row.category)),
     ];
     const byDepartment = Object.entries(byDepartmentMap)
       .map(([departmentName, count]) => ({ department: departmentName, count }))
@@ -202,9 +202,11 @@ router.get(
       byCategory,
       byDepartment,
       byAdmin: byAdminRes.rows,
-      tickets: rows.slice(0, TICKETS_DETAIL_LIMIT).map(({ assigned_to, requester_id, ...ticket }) => ticket),
-      ticketsLimited: rows.length > TICKETS_DETAIL_LIMIT,
-      ticketsLimit: TICKETS_DETAIL_LIMIT,
+      tickets: (req.query.tickets === "all" ? rows : rows.slice(0, TICKETS_DETAIL_LIMIT)).map(
+        ({ assigned_to, requester_id, ...ticket }) => ticket
+      ),
+      ticketsLimited: req.query.tickets !== "all" && rows.length > TICKETS_DETAIL_LIMIT,
+      ticketsLimit: req.query.tickets === "all" ? rows.length : TICKETS_DETAIL_LIMIT,
     });
   })
 );

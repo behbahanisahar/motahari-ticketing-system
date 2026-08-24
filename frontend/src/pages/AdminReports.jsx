@@ -1,21 +1,33 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Building2, UserRound } from "lucide-react";
+import { Building2, FileSpreadsheet, UserRound } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { TableToolbar } from "@/components/TableToolbar";
 import { ResponsiveTable } from "@/components/ResponsiveTable";
 import { useClientTable } from "@/hooks/useClientTable";
+import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { STATUSES, ticketItPriority, ticketStatus, ticketCategoryMeta } from "@/lib/constants";
+import { STATUSES, statusMeta, priorityMeta, ticketItPriority, ticketStatus, ticketCategoryMeta } from "@/lib/constants";
 import { currentJalaali, PERSIAN_MONTHS } from "@/lib/shamsi";
 import { formatDateFa, formatDurationFa, formatNumber, toPersianDigits } from "@/lib/format";
+import { downloadExcel } from "@/lib/exportExcel";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 10;
 const nowJalaali = currentJalaali();
+
+function toExcelNumber(value) {
+  const num = Number(value);
+  return Number.isFinite(num) ? num : 0;
+}
+
+function buildReportFileName(periodLabel) {
+  const safe = String(periodLabel || "reports").replace(/[\\/:*?"<>|]/g, "-").trim();
+  return `gozaresh-tickets-${safe || "reports"}`;
+}
 
 function FilterBar({ years, jYear, setJYear, jMonth, setJMonth, months, department, setDepartment, teams, status, setStatus }) {
   return (
@@ -285,6 +297,105 @@ export default function AdminReports() {
 
   const maxDept = Math.max(1, ...(stats?.byDepartment?.map((d) => d.count) || [1]));
 
+  const handleExportExcel = async () => {
+    try {
+      const fullStats = await api.stats({ jYear, jMonth, status, department, tickets: "all" });
+      const periodLabel = fullStats?.period?.label || stats?.period?.label || "گزارش";
+
+      downloadExcel(buildReportFileName(periodLabel), [
+        {
+          name: "خلاصه",
+          headers: ["شاخص", "مقدار"],
+          rows: [
+            ["بازه", periodLabel],
+            ["کل تیکت‌ها", toExcelNumber(fullStats.total)],
+            ["درخواست‌کنندگان", toExcelNumber(fullStats.summary?.uniqueRequesters)],
+            ["بدون مسئول", toExcelNumber(fullStats.summary?.unassigned)],
+            [
+              "میانگین زمان انجام (ساعت)",
+              fullStats.summary?.avgResolutionHours != null
+                ? Number(fullStats.summary.avgResolutionHours)
+                : "—",
+            ],
+            ["تعداد تیکت بسته‌شده", toExcelNumber(fullStats.summary?.closedCount)],
+          ],
+        },
+        {
+          name: "وضعیت",
+          headers: ["وضعیت", "تعداد"],
+          rows: STATUSES.map((item) => [
+            item.label,
+            toExcelNumber((fullStats.byStatus || []).find((row) => row.status === item.value)?.count),
+          ]),
+        },
+        {
+          name: "اولویت",
+          headers: ["اولویت", "تعداد"],
+          rows: (fullStats.byPriority || []).map((row) => [
+            priorityMeta(row.priority).label,
+            toExcelNumber(row.count),
+          ]),
+        },
+        {
+          name: "دسته‌بندی",
+          headers: ["دسته‌بندی", "تعداد"],
+          rows: (fullStats.byCategory || []).map((row) => [row.label, toExcelNumber(row.count)]),
+        },
+        {
+          name: "واحدها",
+          headers: ["واحد سازمانی", "تعداد تیکت"],
+          rows: (fullStats.byDepartment || []).map((row) => [row.department || "—", toExcelNumber(row.count)]),
+        },
+        {
+          name: "عملکرد تیم",
+          headers: ["نام", "نام کاربری", "واگذارشده", "در صف", "در حال انجام", "انجام شده", "رد شده"],
+          rows: (fullStats.byAdmin || []).map((row) => [
+            row.display_name || "—",
+            row.username || "—",
+            toExcelNumber(row.assigned_count),
+            toExcelNumber(row.queued_count),
+            toExcelNumber(row.in_progress_count),
+            toExcelNumber(row.done_count),
+            toExcelNumber(row.rejected_count),
+          ]),
+        },
+        {
+          name: "جزئیات تیکت‌ها",
+          headers: [
+            "شماره",
+            "موضوع",
+            "وضعیت",
+            "اولویت",
+            "واحد",
+            "دسته‌بندی",
+            "درخواست‌کننده",
+            "مسئول",
+            "کامپیوتر",
+            "تاریخ ثبت",
+            "زمان انجام",
+          ],
+          rows: (fullStats.tickets || []).map((ticket) => [
+            ticket.ticket_number || "",
+            ticket.subject || "",
+            statusMeta(ticketStatus(ticket)).label,
+            priorityMeta(ticketItPriority(ticket)).label,
+            ticket.team || ticket.department || "—",
+            ticketCategoryMeta(ticket.category).label,
+            ticket.requester_name || "—",
+            ticket.assignee_name || "—",
+            ticket.computer_name || "—",
+            formatDateFa(ticket.created_at, { year: "numeric", month: "long", day: "numeric" }),
+            formatDurationFa(ticket.resolutionHours),
+          ]),
+        },
+      ]);
+
+      toast.success("فایل اکسل گزارش دانلود شد.");
+    } catch (err) {
+      toast.error(err.message || "خروجی اکسل ناموفق بود.");
+    }
+  };
+
   return (
     <div className="section-gap">
       <PageHeader
@@ -295,6 +406,12 @@ export default function AdminReports() {
             : stats
               ? toPersianDigits(stats.period.label)
               : error || "گزارشی برای نمایش نیست."
+        }
+        action={
+          <Button type="button" variant="outline" onClick={handleExportExcel} disabled={loading || !stats}>
+            <FileSpreadsheet className="h-4 w-4" />
+            خروجی اکسل
+          </Button>
         }
       />
 

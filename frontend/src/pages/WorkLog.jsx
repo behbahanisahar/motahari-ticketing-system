@@ -25,7 +25,7 @@ import {
 import { useAuth } from "@/hooks/useAuth";
 import { useAppDialog } from "@/hooks/useAppDialog";
 import { api } from "@/lib/api";
-import { STATUSES, WORK_CATEGORIES, workCategoryMeta } from "@/lib/constants";
+import { STATUSES, ACTIVE_TICKET_CATEGORIES, workCategoryMeta, ticketCategoryOptions } from "@/lib/constants";
 import { formatMinutesAsHours, formatNumber, parseLocalizedInteger, toPersianDigits } from "@/lib/format";
 import { formatShamsiDateLong, formatShamsiDateShort, normalizeGregorianDate, todayGregorian } from "@/lib/shamsi";
 import { cn } from "@/lib/utils";
@@ -58,7 +58,7 @@ function assignmentBadge(row) {
 const emptyForm = {
   title: "",
   description: "",
-  category: "other",
+  category: "hardware",
   durationMinutes: "",
   assigneeId: "self",
   status: "queued",
@@ -520,9 +520,9 @@ export default function WorkLog() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {WORK_CATEGORIES.map((c) => (
-                    <SelectItem key={c.value} value={c.value}>
-                      {c.label}
+                  {ticketCategoryOptions(form.category).map((c) => (
+                    <SelectItem key={c.value} value={c.value} disabled={!c.active}>
+                      {c.active ? c.label : `${c.label} (غیرفعال)`}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -607,7 +607,7 @@ export default function WorkLog() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all">همه دسته‌ها</SelectItem>
-              {WORK_CATEGORIES.map((c) => (
+              {ACTIVE_TICKET_CATEGORIES.map((c) => (
                 <SelectItem key={c.value} value={c.value}>
                   {c.label}
                 </SelectItem>

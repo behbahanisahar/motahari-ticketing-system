@@ -8,7 +8,7 @@ import { PriorityPicker } from "@/components/PriorityPicker";
 import { Button } from "@/components/ui/button";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { PriorityBadge, StatusBadge } from "@/components/StatusBadges";
-import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, TICKET_CATEGORIES, ticketCategoryMeta } from "@/lib/constants";
+import { STATUSES, ticketItPriority, ticketRequesterPriority, ticketStatus, ticketCategoryOptions, ticketCategoryMeta } from "@/lib/constants";
 import { useAuth } from "@/hooks/useAuth";
 import { api } from "@/lib/api";
 import { toast } from "sonner";
@@ -216,8 +216,10 @@ export default function TicketDetail() {
                       <SelectTrigger className="bg-white"><SelectValue placeholder="انتخاب دسته" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="none">تعیین نشده</SelectItem>
-                        {TICKET_CATEGORIES.map((c) => (
-                          <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
+                        {ticketCategoryOptions(ticket.category).map((c) => (
+                          <SelectItem key={c.value} value={c.value} disabled={!c.active}>
+                            {c.active ? c.label : `${c.label} (غیرفعال)`}
+                          </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>

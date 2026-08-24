@@ -49,25 +49,48 @@ export function ticketItPriority(ticket) {
 export const ticketItStatus = ticketStatus;
 
 export const WORK_CATEGORIES = [
-  { value: "windows", label: "نصب ویندوز" },
+  { value: "hardware", label: "سخت افزار و پرینتر" },
+  { value: "windows", label: "ویندوز و نصب آن" },
+  { value: "rayavaran", label: "سیستم رایاوران و HIS" },
+  { value: "office_automation", label: "اتوماسیون اداری، چارگون و پرسنلی" },
+  { value: "insurance", label: "سامانه‌های بیمه‌ای" },
+  { value: "support", label: "پاسخ به سوال" },
+  { value: "user_error", label: "خطای کاربر" },
   { value: "printer", label: "پرینتر" },
   { value: "network", label: "شبکه و اینترنت" },
-  { value: "hardware", label: "سخت‌افزار" },
-  { value: "support", label: "پاسخ به سوال" },
-  { value: "rayavaran", label: "سیستم رایاوران" },
-  { value: "office_automation", label: "اتوماسیون اداری و چارگون" },
-  { value: "user_error", label: "خطای کاربر" },
   { value: "other", label: "سایر" },
 ];
 
-/** Same taxonomy as work-log categories; used for IT ticket classification. */
-export const TICKET_CATEGORIES = WORK_CATEGORIES;
+/** Ticket classification: only `active` items are selectable for new data. */
+export const TICKET_CATEGORIES = [
+  { value: "hardware", label: "سخت افزار و پرینتر", active: true },
+  { value: "windows", label: "ویندوز و نصب آن", active: true },
+  { value: "rayavaran", label: "سیستم رایاوران و HIS", active: true },
+  { value: "office_automation", label: "اتوماسیون اداری، چارگون و پرسنلی", active: true },
+  { value: "insurance", label: "سامانه‌های بیمه‌ای", active: true },
+  { value: "support", label: "پاسخ به سوال", active: true },
+  { value: "user_error", label: "خطای کاربر", active: true },
+  { value: "printer", label: "پرینتر", active: false },
+  { value: "network", label: "شبکه و اینترنت", active: false },
+  { value: "other", label: "سایر", active: false },
+];
+
+export const ACTIVE_TICKET_CATEGORIES = TICKET_CATEGORIES.filter((c) => c.active);
 
 export function workCategoryMeta(value) {
-  return WORK_CATEGORIES.find((c) => c.value === value) || WORK_CATEGORIES[WORK_CATEGORIES.length - 1];
+  return WORK_CATEGORIES.find((c) => c.value === value) || WORK_CATEGORIES.find((c) => c.value === "hardware");
 }
 
 export function ticketCategoryMeta(value) {
   if (!value) return { value: "", label: "تعیین نشده" };
   return TICKET_CATEGORIES.find((c) => c.value === value) || { value, label: value };
+}
+
+/** Active categories plus a current legacy value so existing records still display. */
+export function ticketCategoryOptions(currentValue) {
+  const options = [...ACTIVE_TICKET_CATEGORIES];
+  if (currentValue && !options.some((c) => c.value === currentValue)) {
+    options.push({ ...ticketCategoryMeta(currentValue), active: false });
+  }
+  return options;
 }
