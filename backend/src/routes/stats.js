@@ -10,6 +10,7 @@ const TICKETS_DETAIL_LIMIT = 100;
 
 let categoryColumnReady = null;
 let closedAtColumnReady = null;
+let isBlockedColumnReady = null;
 
 async function ticketsHaveCategoryColumn() {
   if (categoryColumnReady != null) return categoryColumnReady;
@@ -45,6 +46,24 @@ async function ticketsHaveClosedAtColumn() {
     closedAtColumnReady = false;
   }
   return closedAtColumnReady;
+}
+
+async function ticketsHaveIsBlockedColumn() {
+  if (isBlockedColumnReady != null) return isBlockedColumnReady;
+  try {
+    const result = await db.query(
+      `SELECT 1
+       FROM information_schema.columns
+       WHERE table_schema = 'public'
+         AND table_name = 'tickets'
+         AND column_name = 'is_blocked'
+       LIMIT 1`
+    );
+    isBlockedColumnReady = result.rows.length > 0;
+  } catch (_) {
+    isBlockedColumnReady = false;
+  }
+  return isBlockedColumnReady;
 }
 
 function resolutionHours(row) {
@@ -102,14 +121,19 @@ router.get(
     const ticketFilter = `t.created_at >= $1::timestamptz AND t.created_at <= $2::timestamptz${extraClauses}`;
     const hasCategory = await ticketsHaveCategoryColumn();
     const hasClosedAt = await ticketsHaveClosedAtColumn();
+    const hasIsBlocked = await ticketsHaveIsBlockedColumn();
     const categorySelect = hasCategory ? "t.category" : "NULL::varchar AS category";
     const closedAtSelect = hasClosedAt ? "t.closed_at" : "NULL::timestamptz AS closed_at";
+    const isBlockedSelect = hasIsBlocked
+      ? "t.is_blocked"
+      : "false::boolean AS is_blocked";
 
     const [ticketsRes, byAdminRes] = await Promise.all([
       db.query(
         `SELECT t.id, t.ticket_number, t.subject, t.team, t.status, t.priority,
                 ${categorySelect},
                 t.computer_name, t.created_at, t.updated_at, ${closedAtSelect},
+                ${isBlockedSelect},
                 t.assigned_to, t.requester_id,
                 u.display_name AS requester_name,
                 a.display_name AS assignee_name
@@ -155,11 +179,15 @@ router.get(
       if (row.requester_id != null) requesterIds.add(row.requester_id);
       if (row.assigned_to == null) unassigned += 1;
       const hours = resolutionHours(row);
+      const blocked = Boolean(row.is_blocked);
+      row.is_blocked = blocked;
       row.resolutionHours = hours;
       if (hours != null) {
-        resolutionSumHours += hours;
-        resolutionCount += 1;
         closedCount += 1;
+        if (!blocked) {
+          resolutionSumHours += hours;
+          resolutionCount += 1;
+        }
       }
     }
 

@@ -183,7 +183,16 @@ export default function AgentDashboard() {
               key: "status",
               label: "وضعیت",
               primary: true,
-              render: (t) => <StatusBadge value={ticketStatus(t)} />,
+              render: (t) => (
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <StatusBadge value={ticketStatus(t)} />
+                  {t.is_blocked && (
+                    <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                      متوقف
+                    </span>
+                  )}
+                </div>
+              ),
             },
             { key: "requester", label: "درخواست‌کننده", render: (t) => t.requester_name },
             { key: "team", label: "واحد", render: (t) => t.team },

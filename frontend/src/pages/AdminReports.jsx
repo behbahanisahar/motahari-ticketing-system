@@ -373,6 +373,7 @@ export default function AdminReports() {
             "کامپیوتر",
             "تاریخ ثبت",
             "زمان انجام",
+            "پیشرفت متوقف",
           ],
           rows: (fullStats.tickets || []).map((ticket) => [
             ticket.ticket_number || "",
@@ -385,7 +386,8 @@ export default function AdminReports() {
             ticket.assignee_name || "—",
             ticket.computer_name || "—",
             formatDateFa(ticket.created_at, { year: "numeric", month: "long", day: "numeric" }),
-            formatDurationFa(ticket.resolutionHours),
+            ticket.is_blocked ? "مستثنی" : formatDurationFa(ticket.resolutionHours),
+            ticket.is_blocked ? "بله" : "خیر",
           ]),
         },
       ]);
@@ -612,6 +614,11 @@ export default function AdminReports() {
                     <div className="flex flex-wrap gap-1.5">
                       <StatusBadge value={ticketStatus(t)} />
                       <PriorityBadge value={ticketItPriority(t)} />
+                      {t.is_blocked && (
+                        <span className="rounded-full border border-amber-300 bg-amber-50 px-2 py-0.5 text-[11px] font-semibold text-amber-800">
+                          متوقف
+                        </span>
+                      )}
                     </div>
                   ),
                 },
@@ -643,7 +650,12 @@ export default function AdminReports() {
                   key: "resolution",
                   label: "زمان انجام",
                   className: "fa-num whitespace-nowrap font-semibold text-slate-700",
-                  render: (t) => formatDurationFa(t.resolutionHours),
+                  render: (t) =>
+                    t.is_blocked ? (
+                      <span className="text-xs font-semibold text-amber-700">مستثنی</span>
+                    ) : (
+                      formatDurationFa(t.resolutionHours)
+                    ),
                 },
               ]}
             />

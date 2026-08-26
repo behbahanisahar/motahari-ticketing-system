@@ -455,12 +455,12 @@ router.get(
   })
 );
 
-// Update ticket fields (admin only: status, IT priority, assignee, category)
+// Update ticket fields (admin only: status, IT priority, assignee, category, isBlocked)
 router.patch(
   "/:id",
   requireAuth,
   asyncHandler(async (req, res) => {
-  const { status, priority, assignedTo, category } = req.body || {};
+  const { status, priority, assignedTo, category, isBlocked } = req.body || {};
 
   const ticketRes = await db.query("SELECT * FROM tickets WHERE id = $1", [req.params.id]);
   if (ticketRes.rows.length === 0) return res.status(404).json({ error: "تیکت یافت نشد." });
@@ -470,7 +470,13 @@ router.patch(
   if (!isAdmin) return res.status(403).json({ error: "فقط مدیر می‌تواند تیکت را به‌روزرسانی کند." });
 
   const isClosed = ticket.status === "done" || ticket.status === "rejected";
-  if (isClosed) {
+  const wantsOtherChanges =
+    status !== undefined ||
+    priority !== undefined ||
+    assignedTo !== undefined ||
+    category !== undefined;
+  // Closed tickets stay locked except for the statistical block flag.
+  if (isClosed && wantsOtherChanges) {
     return res.status(403).json({ error: "تیکت‌های انجام‌شده یا ردشده قابل ویرایش نیستند." });
   }
 
@@ -511,6 +517,10 @@ router.patch(
     params.push(assignedTo || null);
     fields.push(`assigned_to = $${params.length}`);
   }
+  if (isBlocked !== undefined) {
+    params.push(Boolean(isBlocked));
+    fields.push(`is_blocked = $${params.length}`);
+  }
 
   if (fields.length === 0) return res.status(400).json({ error: "هیچ تغییری ارسال نشده است." });
 
@@ -522,10 +532,10 @@ router.patch(
       params
     );
   } catch (err) {
-    if (err && /category/i.test(String(err.message || ""))) {
-      console.error("Ticket category update failed:", err.message);
+    if (err && /category|is_blocked/i.test(String(err.message || ""))) {
+      console.error("Ticket update failed:", err.message);
       return res.status(500).json({
-        error: "ستون دسته‌بندی در دیتابیس آماده نیست. سرور را یک‌بار ری‌استارت کنید.",
+        error: "ستون مورد نیاز در دیتابیس آماده نیست. سرور را یک‌بار ری‌استارت کنید.",
       });
     }
     throw err;

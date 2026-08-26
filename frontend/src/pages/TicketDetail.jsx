@@ -75,6 +75,11 @@ export default function TicketDetail() {
             )}
             <StatusBadge value={status} />
             <PriorityBadge value={requesterPriority} />
+            {ticket.is_blocked && (
+              <span className="rounded-full border border-amber-300 bg-amber-50 px-2.5 py-1 text-xs font-semibold text-amber-800">
+                پیشرفت متوقف
+              </span>
+            )}
           </div>
         }
       />
@@ -175,8 +180,21 @@ export default function TicketDetail() {
           <div className="border-t border-slate-100 bg-slate-50/80 px-5 py-5 sm:px-6">
             <p className="mb-4 text-sm font-bold text-slate-800">مدیریت تیکت</p>
             {isClosed ? (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-                این تیکت {status === "rejected" ? "رد شده" : "انجام شده"} است و دیگر قابل ویرایش نیست.
+              <div className="space-y-4">
+                <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+                  این تیکت {status === "rejected" ? "رد شده" : "انجام شده"} است و وضعیت، مسئول و اولویت قابل ویرایش نیست.
+                </div>
+                <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <input
+                    type="checkbox"
+                    className="mt-1 h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
+                    checked={Boolean(ticket.is_blocked)}
+                    onChange={(e) => handleUpdate({ isBlocked: e.target.checked })}
+                  />
+                  <span className="block text-sm font-semibold text-slate-800">
+                    پیشرفت کار متوقف شده است
+                  </span>
+                </label>
               </div>
             ) : (
               <>
@@ -234,6 +252,18 @@ export default function TicketDetail() {
                   </div>
                   <PriorityPicker value={itPriority} onChange={(v) => handleUpdate({ priority: v })} />
                 </div>
+
+                <label className="mt-5 flex cursor-pointer items-center gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-slate-300 text-teal-700 focus:ring-teal-600"
+                    checked={Boolean(ticket.is_blocked)}
+                    onChange={(e) => handleUpdate({ isBlocked: e.target.checked })}
+                  />
+                  <span className="text-sm font-semibold text-slate-800">
+                    پیشرفت کار متوقف شده است
+                  </span>
+                </label>
               </>
             )}
           </div>

@@ -76,6 +76,7 @@ async function ensureSchema() {
   await tryAddColumn("tickets", "screenshot_filename", "VARCHAR(255)");
   await tryAddColumn("tickets", "screenshot_original_name", "VARCHAR(255)");
   await tryAddColumn("tickets", "screenshot_mime", "VARCHAR(100)");
+  await tryAddColumn("tickets", "is_blocked", "BOOLEAN NOT NULL DEFAULT false");
 
   try {
     const hasClosedIndex = await indexExists("idx_tickets_closed_at");

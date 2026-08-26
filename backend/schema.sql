@@ -38,6 +38,7 @@ CREATE TABLE IF NOT EXISTS tickets (
   screenshot_filename VARCHAR(255),
   screenshot_original_name VARCHAR(255),
   screenshot_mime VARCHAR(100),
+  is_blocked     BOOLEAN NOT NULL DEFAULT false,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   updated_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
