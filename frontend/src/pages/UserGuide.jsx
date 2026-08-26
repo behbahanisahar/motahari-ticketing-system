@@ -1,12 +1,30 @@
-import { BookOpen, Download, ExternalLink } from "lucide-react";
+import { Link } from "react-router-dom";
+import { ArrowRight, BookOpen, Download, ExternalLink } from "lucide-react";
 import { PageHeader } from "@/components/PageHeader";
 import { Button } from "@/components/ui/button";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { Logo } from "@/components/Logo";
 
 const GUIDE_URL = "/user-guide.pdf";
 
-export default function UserGuide() {
+export default function UserGuide({ publicView = false }) {
   return (
     <div className="flex flex-col gap-5">
+      {publicView && (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <Logo to="/login" size={40} />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <Link to="/login">
+              <Button type="button" variant="outline" className="rounded-xl">
+                <ArrowRight className="h-4 w-4" />
+                بازگشت به ورود
+              </Button>
+            </Link>
+          </div>
+        </div>
+      )}
+
       <PageHeader
         title="راهنمای استفاده"
         description="آموزش ورود و کار با سامانه تیک‌یار برای کاربران."

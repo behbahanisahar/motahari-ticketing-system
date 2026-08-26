@@ -51,6 +51,34 @@ function Protected({ children, roles }) {
   );
 }
 
+function GuideRoute() {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="flex min-h-full items-center justify-center">
+        <p className="rounded-full bg-white/60 px-4 py-2 text-sm text-muted-foreground backdrop-blur-sm">
+          در حال بارگذاری...
+        </p>
+      </div>
+    );
+  }
+
+  if (user) {
+    return (
+      <Shell>
+        <UserGuide />
+      </Shell>
+    );
+  }
+
+  return (
+    <div className="mx-auto w-full max-w-5xl px-4 py-6 sm:px-6 sm:py-8">
+      <UserGuide publicView />
+    </div>
+  );
+}
+
 export default function App() {
   return (
     <BrowserRouter>
@@ -62,6 +90,7 @@ export default function App() {
           <Toaster />
           <Routes>
             <Route path="/login" element={<Login />} />
+            <Route path="/guide" element={<GuideRoute />} />
             <Route
               path="/"
               element={
@@ -83,14 +112,6 @@ export default function App() {
               element={
                 <Protected>
                   <Shell><MyTickets /></Shell>
-                </Protected>
-              }
-            />
-            <Route
-              path="/guide"
-              element={
-                <Protected>
-                  <Shell><UserGuide /></Shell>
                 </Protected>
               }
             />

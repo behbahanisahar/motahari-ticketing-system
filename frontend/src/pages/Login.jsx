@@ -1,8 +1,9 @@
 import { useState } from "react";
-import { useNavigate, useLocation } from "react-router-dom";
+import { Link, useNavigate, useLocation } from "react-router-dom";
 import {
   AlertCircle,
   ArrowLeft,
+  BookOpen,
   Eye,
   EyeOff,
   HeartPulse,
@@ -129,7 +130,14 @@ export default function Login() {
 
   return (
     <div className="login-page fixed inset-0 z-20 flex items-center justify-center overflow-hidden p-3 sm:p-4 md:p-5">
-      <div className="absolute end-4 top-4 z-30 sm:end-6 sm:top-6">
+      <div className="absolute end-4 top-4 z-30 flex items-center gap-2 sm:end-6 sm:top-6">
+        <Link
+          to="/guide"
+          className="inline-flex h-10 items-center gap-1.5 rounded-xl border border-slate-200/80 bg-white/90 px-3 text-sm font-semibold text-slate-700 shadow-sm backdrop-blur-sm transition-colors hover:bg-white hover:text-teal-800 dark:border-white/15 dark:bg-slate-900/70 dark:text-slate-100 dark:hover:bg-slate-900"
+        >
+          <BookOpen className="h-4 w-4" />
+          راهنما
+        </Link>
         <ThemeToggle />
       </div>
       <div className="login-shell login-enter grid h-full min-h-0 w-full max-w-5xl overflow-hidden rounded-[1.75rem] border border-slate-200/70 shadow-[0_28px_80px_rgb(15_70_90_/_0.14)] dark:border-white/15 dark:shadow-[0_28px_80px_rgb(2_10_24_/_0.5)] lg:grid-cols-[1fr_1fr]">
@@ -267,9 +275,18 @@ export default function Login() {
               </Button>
             </form>
 
-            <div className="mt-6 flex items-center justify-center gap-2 text-xs text-slate-500 lg:justify-start">
-              <Shield className="h-4 w-4 text-teal-600/80" />
-              <span>ارتباط امن با سامانه بیمارستان</span>
+            <div className="mt-6 flex flex-col items-center gap-3 text-xs text-slate-500 lg:items-start">
+              <div className="flex items-center gap-2">
+                <Shield className="h-4 w-4 text-teal-600/80" />
+                <span>ارتباط امن با سامانه بیمارستان</span>
+              </div>
+              <Link
+                to="/guide"
+                className="inline-flex items-center gap-1.5 font-semibold text-teal-700 transition-colors hover:text-teal-900"
+              >
+                <BookOpen className="h-3.5 w-3.5" />
+                مشاهده راهنمای استفاده
+              </Link>
             </div>
           </div>
         </section>
